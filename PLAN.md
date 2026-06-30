@@ -24,6 +24,91 @@ Build the smallest useful loop:
 
 This is the first version because it proves the core product loop without Slack, Teams, iMessage, Calendar, or full desktop automation.
 
+## Second Milestone: Voice Command Loop
+
+After the GitHub + Codex loop works, add voice as the next motivational feature.
+
+The goal is not full voice-controlled computer automation yet. The goal is a small voice loop that feels like the beginning of the futuristic version:
+
+```text
+Me: What happened yesterday?
+App: GitHub had one failed workflow, two review requests, and one assigned issue.
+
+Me: Tell Codex to start with the CI failure.
+App: I found the failed workflow. I can start a Codex task with this context. Approve?
+```
+
+Voice should be treated as another input surface. It should not bypass the action and approval system.
+
+### Voice V1 Capabilities
+
+- Convert speech to text.
+- Send the text to an LLM intent router.
+- Classify the request into a known intent.
+- Route the intent to an allowlisted backend action.
+- Reply conversationally when no action is needed.
+- Ask for approval before starting Codex or doing anything with side effects.
+
+### Voice V1 Intents
+
+Start with a small intent set:
+
+```ts
+type VoiceIntent =
+  | {
+      type: "summarize_morning_brief";
+    }
+  | {
+      type: "explain_work_item";
+      workItemHint: string;
+    }
+  | {
+      type: "draft_codex_task";
+      workItemHint: string;
+    }
+  | {
+      type: "start_codex_task";
+      workItemHint: string;
+      requiresApproval: true;
+    }
+  | {
+      type: "open_url";
+      targetHint: string;
+      requiresApproval: false;
+    }
+  | {
+      type: "smalltalk_or_answer";
+      response: string;
+    }
+  | {
+      type: "unknown";
+      clarificationQuestion: string;
+    };
+```
+
+The LLM should return structured intent data. The backend should validate it before doing anything.
+
+### Voice Safety Rule
+
+The voice flow must follow this rule:
+
+```text
+voice -> transcript -> LLM intent -> app validation -> approval if needed -> action
+```
+
+The LLM can suggest what to do. It cannot directly run commands, send messages, edit files, or start Codex without going through the app action system.
+
+### Voice Non-Goals
+
+- No always-listening background assistant at first.
+- No wake word.
+- No autonomous message sending.
+- No arbitrary terminal commands.
+- No controlling random desktop apps.
+- No multi-app automation until the GitHub + Codex flow is stable.
+
+Use a push-to-talk button in the dashboard first. Always-listening can come much later.
+
 ## V0 Scope
 
 ### Data Sources
@@ -261,6 +346,57 @@ It should:
 
 Outcome: first end-to-end loop works.
 
+### Step 9: Add Push-To-Talk Prototype
+
+Add a button in the dashboard:
+
+```text
+Hold to talk
+```
+
+For the first pass:
+
+- Use browser speech recognition if it is good enough.
+- Otherwise record audio and send it to a speech-to-text provider later.
+- Display the transcript before taking action.
+
+Outcome: voice becomes an input, but nothing executes yet.
+
+### Step 10: Add LLM Intent Routing
+
+Add an LLM provider interface:
+
+```ts
+interface ModelProvider {
+  generateStructured<T>(input: ModelRequest, schema: Schema<T>): Promise<T>;
+}
+```
+
+Use it to map transcripts into `VoiceIntent`.
+
+The app should support simple commands like:
+
+- "What happened yesterday?"
+- "What should I do first?"
+- "Tell Codex to start with the failed CI."
+- "Explain the first work item."
+
+Outcome: voice can trigger known product flows.
+
+### Step 11: Add Approval Before Action
+
+When voice maps to a side-effecting intent, show an approval card:
+
+```text
+Intent: Start Codex task
+Work item: Failed CI on repo X
+Prompt: ...
+
+[Approve] [Cancel]
+```
+
+Outcome: voice feels powerful without becoming unsafe.
+
 ## Success Criteria
 
 V0 is successful when I can open the dashboard and answer these questions in under 30 seconds:
@@ -269,6 +405,14 @@ V0 is successful when I can open the dashboard and answer these questions in und
 - What changed since last time?
 - What should I do first?
 - Can I start the right coding task without rewriting context manually?
+
+The next milestone is successful when I can use push-to-talk to ask:
+
+- "What happened yesterday?"
+- "What should I do first?"
+- "Tell Codex to start with that."
+
+And the app responds or prepares the correct approved action.
 
 ## Principle
 
