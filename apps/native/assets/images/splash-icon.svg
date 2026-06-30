@@ -1,0 +1,8 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1024" height="1024" fill="none"/>
+  <g aria-label="starter.app">
+    <text x="159" y="510" fill="#1C1C1E" font-family="Arial, Helvetica, sans-serif" font-size="126" font-weight="700" letter-spacing="-2">starter</text>
+    <circle cx="572" cy="475" r="18" fill="#8EE3C1"/>
+    <text x="606" y="510" fill="#1C1C1E" font-family="Arial, Helvetica, sans-serif" font-size="126" font-weight="700" letter-spacing="-2">app</text>
+  </g>
+</svg>

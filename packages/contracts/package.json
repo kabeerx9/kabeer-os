@@ -1,0 +1,25 @@
+{
+  "name": "@app-starter/contracts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./http": "./src/http.ts",
+    "./me": "./src/me.ts",
+    "./account": "./src/account.ts",
+    "./example-projects": "./src/example-projects.ts"
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "test": "node --import tsx --test src/**/*.test.ts"
+  },
+  "dependencies": {
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@app-starter/config": "workspace:*",
+    "tsx": "^4.20.5",
+    "typescript": "catalog:"
+  }
+}

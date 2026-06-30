@@ -1,0 +1,38 @@
+{
+  "name": "fullstack-monorepo-starter",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "type": "module",
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "check-types": "turbo check-types",
+    "test": "node --import tsx --test scripts/*.test.ts && turbo test",
+    "init:project": "tsx scripts/init-project.ts",
+    "doctor": "tsx scripts/doctor.ts",
+    "dev:first-run": "sh scripts/dev-first-run.sh",
+    "dev:native": "turbo -F native dev",
+    "dev:web": "turbo -F web dev",
+    "dev:server": "turbo -F server dev",
+    "db:push": "turbo -F @app-starter/db db:push",
+    "db:studio": "turbo -F @app-starter/db db:studio",
+    "db:generate": "turbo -F @app-starter/db db:generate",
+    "db:migrate": "turbo -F @app-starter/db db:migrate"
+  },
+  "dependencies": {
+    "@app-starter/env": "workspace:*",
+    "dotenv": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@app-starter/config": "workspace:*",
+    "@types/node": "catalog:",
+    "tsx": "^4.20.5",
+    "turbo": "^2.9.16",
+    "typescript": "catalog:"
+  },
+  "packageManager": "pnpm@10.10.0"
+}
