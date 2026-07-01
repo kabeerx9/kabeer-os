@@ -2,13 +2,18 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import type { CapabilityName } from "@app-starter/contracts/capabilities";
+import type {
+  GitHubSyncResult,
+  GitHubSyncStoreState,
+} from "@app-starter/contracts/github";
 import Fastify from "fastify";
 
 import { GitHubProviderError } from "@/providers/github";
+import type { GitHubSyncStore } from "@/stores/github-sync-store";
 
 import { registerGitHubRoutes } from "./github";
 
-const sampleResult = {
+const sampleResult: GitHubSyncResult = {
   syncedAt: "2026-07-02T10:00:00.000Z",
   since: "2026-07-01T10:00:00.000Z",
   username: "kabeer",
@@ -47,7 +52,54 @@ const sampleResult = {
   recommendedActions: [],
 };
 
+function createMemoryStore(initialState?: Partial<GitHubSyncStoreState>): GitHubSyncStore {
+  let state: GitHubSyncStoreState = {
+    lastSync: null,
+    seenActivityIds: [],
+    lastNewActivityIds: [],
+    ...initialState,
+  };
+
+  return {
+    getState: async () => state,
+    saveSync: async (result) => {
+      const previousSeenIds = new Set(state.seenActivityIds);
+      const resultActivityIds = result.activities.map((activity) => activity.id);
+      state = {
+        lastSync: result,
+        seenActivityIds: [...new Set([...state.seenActivityIds, ...resultActivityIds])],
+        lastNewActivityIds: resultActivityIds.filter((id) => !previousSeenIds.has(id)),
+      };
+
+      return state;
+    },
+  };
+}
+
 describe("github routes", () => {
+  it("returns the latest persisted GitHub sync", async () => {
+    const app = Fastify();
+    app.register(registerGitHubRoutes, {
+      registry: {
+        executeCapability: async () => sampleResult,
+      },
+      syncStore: createMemoryStore({
+        lastSync: sampleResult,
+        seenActivityIds: ["github:event:1"],
+        lastNewActivityIds: ["github:event:1"],
+      }),
+    });
+
+    const response = await app.inject({ method: "GET", url: "/api/github/sync/latest" });
+
+    assert.equal(response.statusCode, 200);
+    assert.deepEqual(response.json(), {
+      lastSync: sampleResult,
+      seenActivityIds: ["github:event:1"],
+      newActivityIds: ["github:event:1"],
+    });
+  });
+
   it("syncs GitHub activity through the capability registry", async () => {
     const app = Fastify();
     app.register(registerGitHubRoutes, {
@@ -58,12 +110,17 @@ describe("github routes", () => {
           return sampleResult;
         },
       },
+      syncStore: createMemoryStore(),
     });
 
     const response = await app.inject({ method: "POST", url: "/api/github/sync" });
 
     assert.equal(response.statusCode, 200);
-    assert.deepEqual(response.json(), sampleResult);
+    assert.deepEqual(response.json(), {
+      lastSync: sampleResult,
+      seenActivityIds: ["github:event:1"],
+      newActivityIds: ["github:event:1"],
+    });
   });
 
   it("accepts an explicit lookback window", async () => {
@@ -75,6 +132,7 @@ describe("github routes", () => {
           return sampleResult;
         },
       },
+      syncStore: createMemoryStore(),
     });
 
     const response = await app.inject({
@@ -92,6 +150,7 @@ describe("github routes", () => {
       registry: {
         executeCapability: async () => sampleResult,
       },
+      syncStore: createMemoryStore(),
     });
 
     const response = await app.inject({
@@ -112,6 +171,7 @@ describe("github routes", () => {
           throw new GitHubProviderError("Failed to run GitHub CLI command.");
         },
       },
+      syncStore: createMemoryStore(),
     });
 
     const response = await app.inject({ method: "POST", url: "/api/github/sync" });

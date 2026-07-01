@@ -48,7 +48,25 @@ export const githubSyncResultSchema = z
   })
   .strict();
 
+export const githubSyncStoreStateSchema = z
+  .object({
+    lastSync: githubSyncResultSchema.nullable(),
+    seenActivityIds: z.array(z.string().min(1)),
+    lastNewActivityIds: z.array(z.string().min(1)),
+  })
+  .strict();
+
+export const githubSyncSnapshotSchema = z
+  .object({
+    lastSync: githubSyncResultSchema.nullable(),
+    seenActivityIds: z.array(z.string().min(1)),
+    newActivityIds: z.array(z.string().min(1)),
+  })
+  .strict();
+
 export type GitHubSyncInput = z.infer<typeof githubSyncInputSchema>;
 export type GitHubActivityType = z.infer<typeof githubActivityTypeSchema>;
 export type GitHubActivity = z.infer<typeof githubActivitySchema>;
 export type GitHubSyncResult = z.infer<typeof githubSyncResultSchema>;
+export type GitHubSyncStoreState = z.infer<typeof githubSyncStoreStateSchema>;
+export type GitHubSyncSnapshot = z.infer<typeof githubSyncSnapshotSchema>;

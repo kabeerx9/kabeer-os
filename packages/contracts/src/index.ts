@@ -18,10 +18,14 @@ export {
   githubActivityTypeSchema,
   githubSyncInputSchema,
   githubSyncResultSchema,
+  githubSyncSnapshotSchema,
+  githubSyncStoreStateSchema,
   type GitHubActivity,
   type GitHubActivityType,
   type GitHubSyncInput,
   type GitHubSyncResult,
+  type GitHubSyncSnapshot,
+  type GitHubSyncStoreState,
 } from "./github";
 export {
   deleteAccountInputSchema,

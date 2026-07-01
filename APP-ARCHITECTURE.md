@@ -150,12 +150,15 @@ Implemented:
 ```text
 GET /api/morning-brief
 GET /api/capabilities
+GET /api/github/sync/latest
 POST /api/github/sync
 ```
 
 `GET /api/morning-brief` now executes the internal `morningBrief.read` capability. The response is mocked but typed.
 
-`POST /api/github/sync` executes the internal `github.sync` capability. The first version returns GitHub events for the authenticated GitHub user, filtered to the requested time window. Push events include normalized commit metadata so the dashboard and future orchestrator can show commit messages without re-reading raw GitHub payloads.
+`GET /api/github/sync/latest` reads the latest persisted GitHub sync snapshot from local server storage.
+
+`POST /api/github/sync` executes the internal `github.sync` capability, persists the result, and returns a dashboard snapshot. The first version returns GitHub events for the authenticated GitHub user, filtered to the requested time window. Push events include normalized commit metadata so the dashboard and future orchestrator can show commit messages without re-reading raw GitHub payloads.
 
 Default request:
 
@@ -211,8 +214,39 @@ Main concepts:
 - `GitHubSyncInput`
 - `GitHubActivity`
 - `GitHubSyncResult`
+- `GitHubSyncStoreState`
+- `GitHubSyncSnapshot`
 
 `GitHubActivity` is the normalized unit the app should pass around. It includes the repo/project, activity type, action label, title, summary, URL, timestamp, and provider metadata such as push branch, commit count, and commit messages.
+
+`GitHubSyncSnapshot` is what the dashboard reads. It contains the latest sync result plus `seenActivityIds` and `newActivityIds`. The time window and newness are separate concepts:
+
+```text
+last 24h = activity time filter
+new = activity ID not seen before the previous sync
+```
+
+## Local Storage
+
+Current local store:
+
+```text
+apps/server/.data/github-sync.json
+```
+
+This file is ignored by git. It stores:
+
+- `lastSync`
+- `seenActivityIds`
+- `lastNewActivityIds`
+
+Store boundary:
+
+```text
+apps/server/src/stores/github-sync-store.ts
+```
+
+The route layer uses this store after capability execution. The `GitHubProvider` still only fetches and normalizes GitHub data.
 
 ## Provider Boundaries
 
@@ -364,6 +398,7 @@ apps/server/src/routes/capabilities.ts
 apps/server/src/routes/github.ts
 apps/server/src/routes/morning-brief.ts
 apps/server/src/providers/github.ts
+apps/server/src/stores/github-sync-store.ts
 apps/server/src/services/morning-brief.ts
 apps/web/src/routes/_auth/dashboard.tsx
 apps/web/src/lib/api.ts
@@ -382,15 +417,18 @@ Done:
 - GitHub sync contract
 - read-only `GitHubProvider` using allowlisted `gh api` calls
 - `github.sync` routed through registry
+- file-backed GitHub sync store at `apps/server/.data/github-sync.json`
+- `GET /api/github/sync/latest`
 - `POST /api/github/sync`
 - dashboard reads `GET /api/morning-brief`
+- dashboard reads `GET /api/github/sync/latest`
 - dashboard button calls `POST /api/github/sync`
-- dashboard renders recent GitHub activity from the sync result, grouped by project and split into pushes, issues, pull requests, and other activity
+- dashboard renders recent GitHub activity from the persisted sync snapshot, grouped by project and split into pushes, issues, pull requests, and other activity
+- dashboard shows new activity from `newActivityIds`
 
 Next:
 
 - decide local repo config format for PR/issue/workflow attention signals
-- add persistence for last sync result
 - merge PR/issue/workflow attention signals into the morning brief
 
 ## Maintenance Rule

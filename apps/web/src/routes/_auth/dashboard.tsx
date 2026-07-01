@@ -16,10 +16,11 @@ import {
 
 import {
   ApiError,
+  getLatestGitHubSync,
   getMorningBrief,
   syncGitHub,
   type GitHubActivity,
-  type GitHubSyncResult,
+  type GitHubSyncSnapshot,
   type MorningBrief,
   type RecommendedAction,
 } from "@/lib/api";
@@ -57,6 +58,7 @@ type ActivitySection = {
   key: ActivitySectionKey;
   label: string;
   activities: GitHubActivity[];
+  newActivityCount: number;
 };
 
 type ProjectActivityGroup = {
@@ -69,6 +71,7 @@ type ProjectActivityGroup = {
   commitCount: number;
   issueCount: number;
   pullRequestCount: number;
+  newActivityCount: number;
 };
 
 type MutableProjectActivityGroup = Omit<ProjectActivityGroup, "sections"> & {
@@ -143,7 +146,10 @@ function getCommitCount(activity: GitHubActivity) {
   return getPushCommits(activity).length;
 }
 
-function groupActivitiesByRepo(activities: GitHubActivity[]): ProjectActivityGroup[] {
+function groupActivitiesByRepo(
+  activities: GitHubActivity[],
+  newActivityIdSet: ReadonlySet<string>,
+): ProjectActivityGroup[] {
   const groupMap = new Map<string, MutableProjectActivityGroup>();
 
   for (const activity of activities) {
@@ -160,6 +166,7 @@ function groupActivitiesByRepo(activities: GitHubActivity[]): ProjectActivityGro
         commitCount: 0,
         issueCount: 0,
         pullRequestCount: 0,
+        newActivityCount: 0,
       };
       groupMap.set(activity.repo, group);
     }
@@ -169,6 +176,10 @@ function groupActivitiesByRepo(activities: GitHubActivity[]): ProjectActivityGro
 
     if (activity.createdAt > group.latestAt) {
       group.latestAt = activity.createdAt;
+    }
+
+    if (newActivityIdSet.has(activity.id)) {
+      group.newActivityCount += 1;
     }
 
     if (activity.type === "push") {
@@ -198,6 +209,9 @@ function groupActivitiesByRepo(activities: GitHubActivity[]): ProjectActivityGro
                 key,
                 label: activitySectionLabels[key],
                 activities: [...sectionActivities].sort(sortActivitiesNewestFirst),
+                newActivityCount: sectionActivities.filter((activity) =>
+                  newActivityIdSet.has(activity.id),
+                ).length,
               },
             ]
           : [];
@@ -208,6 +222,7 @@ function groupActivitiesByRepo(activities: GitHubActivity[]): ProjectActivityGro
 
 function projectStats(project: ProjectActivityGroup) {
   const stats = [
+    pluralize(project.newActivityCount, "new activity", "new activities"),
     pluralize(project.activities.length, "activity", "activities"),
     pluralize(project.pushCount, "push", "pushes"),
     pluralize(project.commitCount, "commit"),
@@ -270,7 +285,8 @@ function DashboardPage() {
   const [brief, setBrief] = useState<MorningBrief | null>(null);
   const [briefLoading, setBriefLoading] = useState(true);
   const [briefError, setBriefError] = useState<string | null>(null);
-  const [syncResult, setSyncResult] = useState<GitHubSyncResult | null>(null);
+  const [syncSnapshot, setSyncSnapshot] = useState<GitHubSyncSnapshot | null>(null);
+  const [syncSnapshotLoading, setSyncSnapshotLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
 
@@ -287,16 +303,30 @@ function DashboardPage() {
     }
   }, []);
 
+  const loadLatestGitHubSync = useCallback(async () => {
+    setSyncSnapshotLoading(true);
+    setSyncError(null);
+
+    try {
+      setSyncSnapshot(await getLatestGitHubSync());
+    } catch (error: unknown) {
+      setSyncError(apiErrorMessage(error, "Failed to load GitHub activity"));
+    } finally {
+      setSyncSnapshotLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     void loadBrief();
-  }, [loadBrief]);
+    void loadLatestGitHubSync();
+  }, [loadBrief, loadLatestGitHubSync]);
 
   const handleGitHubSync = useCallback(async () => {
     setSyncing(true);
     setSyncError(null);
 
     try {
-      setSyncResult(await syncGitHub());
+      setSyncSnapshot(await syncGitHub());
     } catch (error: unknown) {
       setSyncError(apiErrorMessage(error, "Failed to sync GitHub activity"));
     } finally {
@@ -304,7 +334,10 @@ function DashboardPage() {
     }
   }, []);
 
+  const syncResult = syncSnapshot?.lastSync ?? null;
+  const newActivityIds = syncSnapshot?.newActivityIds ?? [];
   const githubCount = syncResult?.activities.length ?? 0;
+  const newActivityCount = newActivityIds.length;
   const githubProjectCount = useMemo(() => {
     if (!syncResult) {
       return 0;
@@ -313,7 +346,6 @@ function DashboardPage() {
     return new Set(syncResult.activities.map((activity) => activity.repo)).size;
   }, [syncResult]);
   const recommendedCount = brief?.recommendedActions.length ?? 0;
-  const highPriorityCount = brief?.summary.highPriorityCount ?? 0;
   const syncWindow = useMemo(() => {
     if (!syncResult) {
       return null;
@@ -350,20 +382,22 @@ function DashboardPage() {
         </Card>
         <Card>
           <CardHeader>
+            <CardTitle className="text-base">New</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-semibold">{newActivityCount}</p>
+            <p className="text-sm text-muted-foreground">
+              {syncResult ? "since previous sync" : "after first sync"}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
             <CardTitle className="text-base">Recommended</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-semibold">{recommendedCount}</p>
             <p className="text-sm text-muted-foreground">next actions</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Priority</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-semibold">{highPriorityCount}</p>
-            <p className="text-sm text-muted-foreground">high priority items</p>
           </CardContent>
         </Card>
       </div>
@@ -390,8 +424,13 @@ function DashboardPage() {
           <CardContent>
             {syncing ? (
               <LoadingState label="Syncing GitHub activity..." />
+            ) : syncSnapshotLoading ? (
+              <LoadingState label="Loading saved GitHub activity..." />
             ) : syncResult ? (
-              <GitHubActivityList activities={syncResult.activities} />
+              <GitHubActivityList
+                activities={syncResult.activities}
+                newActivityIds={newActivityIds}
+              />
             ) : (
               <EmptyState label="No GitHub sync yet." />
             )}
@@ -413,7 +452,6 @@ function DashboardPage() {
           </CardContent>
         </Card>
       </section>
-
     </div>
   );
 }
@@ -445,8 +483,18 @@ function EmptyState({ label }: { label: string }) {
   return <p className="border border-dashed p-4 text-sm text-muted-foreground">{label}</p>;
 }
 
-function GitHubActivityList({ activities }: { activities: GitHubActivity[] }) {
-  const projects = useMemo(() => groupActivitiesByRepo(activities), [activities]);
+function GitHubActivityList({
+  activities,
+  newActivityIds,
+}: {
+  activities: GitHubActivity[];
+  newActivityIds: string[];
+}) {
+  const newActivityIdSet = useMemo(() => new Set(newActivityIds), [newActivityIds]);
+  const projects = useMemo(
+    () => groupActivitiesByRepo(activities, newActivityIdSet),
+    [activities, newActivityIdSet],
+  );
 
   if (activities.length === 0) {
     return <EmptyState label="No GitHub activity found in this window." />;
@@ -455,19 +503,30 @@ function GitHubActivityList({ activities }: { activities: GitHubActivity[] }) {
   return (
     <div className="flex flex-col gap-4">
       {projects.map((project) => (
-        <ProjectActivityGroupView key={project.repo} project={project} />
+        <ProjectActivityGroupView
+          key={project.repo}
+          project={project}
+          newActivityIdSet={newActivityIdSet}
+        />
       ))}
     </div>
   );
 }
 
-function ProjectActivityGroupView({ project }: { project: ProjectActivityGroup }) {
+function ProjectActivityGroupView({
+  project,
+  newActivityIdSet,
+}: {
+  project: ProjectActivityGroup;
+  newActivityIdSet: ReadonlySet<string>;
+}) {
   return (
     <section className="overflow-hidden border">
       <div className="flex flex-col gap-3 border-b p-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <p className="break-words text-sm font-semibold">{project.repo}</p>
+            {project.newActivityCount > 0 ? <NewBadge /> : null}
             <span className="text-xs text-muted-foreground">
               Latest {formatDateTime(project.latestAt)}
             </span>
@@ -489,16 +548,23 @@ function ProjectActivityGroupView({ project }: { project: ProjectActivityGroup }
         {project.sections.map((section) => (
           <section key={section.key}>
             <div className="flex items-center justify-between gap-3 bg-muted/40 px-3 py-2">
-              <p className="text-[11px] font-medium uppercase text-muted-foreground">
-                {section.label}
-              </p>
+              <div className="flex items-center gap-2">
+                <p className="text-[11px] font-medium uppercase text-muted-foreground">
+                  {section.label}
+                </p>
+                {section.newActivityCount > 0 ? <NewBadge /> : null}
+              </div>
               <span className="text-xs text-muted-foreground">
                 {pluralize(section.activities.length, "item")}
               </span>
             </div>
             <ul className="divide-y">
               {section.activities.map((activity) => (
-                <ProjectActivityRow key={activity.id} activity={activity} />
+                <ProjectActivityRow
+                  key={activity.id}
+                  activity={activity}
+                  isNew={newActivityIdSet.has(activity.id)}
+                />
               ))}
             </ul>
           </section>
@@ -508,7 +574,13 @@ function ProjectActivityGroupView({ project }: { project: ProjectActivityGroup }
   );
 }
 
-function ProjectActivityRow({ activity }: { activity: GitHubActivity }) {
+function ProjectActivityRow({
+  activity,
+  isNew,
+}: {
+  activity: GitHubActivity;
+  isNew: boolean;
+}) {
   const commits = activity.type === "push" ? getPushCommits(activity) : [];
 
   return (
@@ -521,6 +593,7 @@ function ProjectActivityRow({ activity }: { activity: GitHubActivity }) {
               <span className="border px-2 py-0.5 text-[11px] text-muted-foreground">
                 {activityLabels[activity.type]}
               </span>
+              {isNew ? <NewBadge /> : null}
               <span className="text-xs text-muted-foreground">
                 {formatDateTime(activity.createdAt)}
               </span>
@@ -545,6 +618,10 @@ function ProjectActivityRow({ activity }: { activity: GitHubActivity }) {
       </div>
     </li>
   );
+}
+
+function NewBadge() {
+  return <span className="border px-2 py-0.5 text-[11px] font-medium">New</span>;
 }
 
 function ActivityTypeIcon({ type }: { type: GitHubActivity["type"] }) {

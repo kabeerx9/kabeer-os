@@ -6,7 +6,7 @@ import {
   exampleProjectListSchema,
   exampleProjectSchema,
   githubSyncInputSchema,
-  githubSyncResultSchema,
+  githubSyncSnapshotSchema,
   meResponseSchema,
   morningBriefSchema,
   updateAccountInputSchema,
@@ -17,6 +17,7 @@ import {
   type GitHubActivity,
   type GitHubSyncInput,
   type GitHubSyncResult,
+  type GitHubSyncSnapshot,
   type MorningBrief,
   type MeResponse,
   type RecommendedAction,
@@ -35,6 +36,7 @@ export type {
   GitHubActivity,
   GitHubSyncInput,
   GitHubSyncResult,
+  GitHubSyncSnapshot,
   MorningBrief,
   MeResponse,
   RecommendedAction,
@@ -58,9 +60,13 @@ export function getMorningBrief() {
   return api.requestJson("/api/morning-brief", morningBriefSchema);
 }
 
+export function getLatestGitHubSync() {
+  return api.requestJson("/api/github/sync/latest", githubSyncSnapshotSchema);
+}
+
 export function syncGitHub(input: Partial<GitHubSyncInput> = {}) {
   const body = githubSyncInputSchema.parse(input);
-  return api.requestJson("/api/github/sync", githubSyncResultSchema, {
+  return api.requestJson("/api/github/sync", githubSyncSnapshotSchema, {
     method: "POST",
     body: JSON.stringify(body),
   });

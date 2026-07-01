@@ -322,12 +322,14 @@ Status: in progress. The backend now has a read-only `github.sync` capability an
 Store:
 
 - last sync timestamp
-- seen work item IDs
+- seen GitHub activity IDs
 - last generated brief
 
 Start with JSON if faster; move to SQLite when the shape stabilizes.
 
 Outcome: the app can say what changed since the last run.
+
+Status: partially done. GitHub sync now persists to `apps/server/.data/github-sync.json`, tracks `seenActivityIds`, stores `lastNewActivityIds`, exposes `GET /api/github/sync/latest`, and reloads the persisted dashboard snapshot after refresh. The last generated brief is still future work.
 
 ### Step 7: Add Codex Task Drafting
 

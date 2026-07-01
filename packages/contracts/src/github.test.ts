@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { githubSyncInputSchema, githubSyncResultSchema } from "./github.ts";
+import {
+  githubSyncInputSchema,
+  githubSyncResultSchema,
+  githubSyncSnapshotSchema,
+  githubSyncStoreStateSchema,
+} from "./github.ts";
 
 describe("githubSyncInputSchema", () => {
   it("defaults to a 24 hour lookback", () => {
@@ -80,6 +85,36 @@ describe("githubSyncResultSchema", () => {
           },
         ],
       }),
+    );
+  });
+
+  it("accepts persisted sync state", () => {
+    assert.deepEqual(
+      githubSyncStoreStateSchema.parse({
+        lastSync: validResult,
+        seenActivityIds: ["github:event:123"],
+        lastNewActivityIds: ["github:event:123"],
+      }),
+      {
+        lastSync: validResult,
+        seenActivityIds: ["github:event:123"],
+        lastNewActivityIds: ["github:event:123"],
+      },
+    );
+  });
+
+  it("accepts a dashboard sync snapshot", () => {
+    assert.deepEqual(
+      githubSyncSnapshotSchema.parse({
+        lastSync: validResult,
+        seenActivityIds: ["github:event:123"],
+        newActivityIds: ["github:event:123"],
+      }),
+      {
+        lastSync: validResult,
+        seenActivityIds: ["github:event:123"],
+        newActivityIds: ["github:event:123"],
+      },
     );
   });
 });
