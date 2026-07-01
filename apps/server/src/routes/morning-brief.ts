@@ -2,26 +2,26 @@ import { morningBriefSchema } from "@app-starter/contracts/morning-brief";
 import type { FastifyInstance } from "fastify";
 
 import {
-  defaultMorningBriefService,
-  type MorningBriefService,
-} from "@/services/morning-brief";
+  defaultCapabilityRegistry,
+  type CapabilityRegistry,
+} from "@/capabilities/registry";
 
 export type MorningBriefRouteDeps = {
-  service: MorningBriefService;
+  registry: Pick<CapabilityRegistry, "executeCapability">;
 };
 
 const defaultDeps: MorningBriefRouteDeps = {
-  service: defaultMorningBriefService,
+  registry: defaultCapabilityRegistry,
 };
 
 export async function registerMorningBriefRoutes(
   fastify: FastifyInstance,
   deps: Partial<MorningBriefRouteDeps> = {},
 ) {
-  const { service } = { ...defaultDeps, ...deps };
+  const { registry } = { ...defaultDeps, ...deps };
 
   fastify.get("/api/morning-brief", async () => {
-    const brief = await service.getMorningBrief();
+    const brief = await registry.executeCapability("morningBrief.read", {});
     return morningBriefSchema.parse(brief);
   });
 }

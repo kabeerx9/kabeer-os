@@ -1,6 +1,7 @@
 import fastifyCors from "@fastify/cors";
 import Fastify from "fastify";
 
+import { registerCapabilitiesRoutes } from "./routes/capabilities";
 import { registerMorningBriefRoutes } from "./routes/morning-brief";
 
 const baseCorsConfig = {
@@ -16,6 +17,7 @@ const fastify = Fastify({
 });
 
 fastify.register(fastifyCors, baseCorsConfig);
+fastify.register(registerCapabilitiesRoutes);
 fastify.register(registerMorningBriefRoutes);
 
 fastify.get("/", async () => {

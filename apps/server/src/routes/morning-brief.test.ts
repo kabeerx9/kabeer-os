@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import type { CapabilityName } from "@app-starter/contracts/capabilities";
 import Fastify from "fastify";
 
 import { registerMorningBriefRoutes } from "./morning-brief";
@@ -81,8 +82,12 @@ const sampleBrief = {
 function createTestApp() {
   const fastify = Fastify();
   fastify.register(registerMorningBriefRoutes, {
-    service: {
-      getMorningBrief: async () => sampleBrief,
+    registry: {
+      executeCapability: async (name: CapabilityName, input: unknown) => {
+        assert.equal(name, "morningBrief.read");
+        assert.deepEqual(input, {});
+        return sampleBrief;
+      },
     },
   });
   return fastify;

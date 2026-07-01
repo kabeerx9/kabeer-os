@@ -89,6 +89,14 @@ Examples:
 
 The router should choose from available capabilities. If no capability fits, the app should ask a clarifying question or say it cannot do that yet.
 
+Current implementation:
+
+- Shared capability metadata lives in `packages/contracts`.
+- The server owns the capability registry.
+- `GET /api/capabilities` exposes the current capability map.
+- `GET /api/morning-brief` executes the internal `morningBrief.read` capability.
+- Planned capabilities can be listed before they are executable, but they cannot be run until implemented.
+
 ## Approval Policy
 
 The approval layer is what makes the system trustworthy.

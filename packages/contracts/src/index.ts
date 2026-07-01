@@ -1,5 +1,19 @@
 export { ApiError, createApiClient, type ApiClient, type ApiClientOptions } from "./http";
 export {
+  capabilityApprovalSchema,
+  capabilityListSchema,
+  capabilityNameSchema,
+  capabilityRiskSchema,
+  capabilitySchema,
+  capabilityStatusSchema,
+  type Capability,
+  type CapabilityApproval,
+  type CapabilityList,
+  type CapabilityName,
+  type CapabilityRisk,
+  type CapabilityStatus,
+} from "./capabilities";
+export {
   deleteAccountInputSchema,
   updateAccountInputSchema,
   type DeleteAccountInput,
