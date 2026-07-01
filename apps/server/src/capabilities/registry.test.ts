@@ -21,6 +21,11 @@ const sampleBrief = {
 describe("capability registry", () => {
   it("lists capabilities with approval metadata", () => {
     const registry = createCapabilityRegistry({
+      githubProvider: {
+        syncActivity: async () => {
+          throw new Error("Not used");
+        },
+      },
       morningBriefService: {
         getMorningBrief: async () => sampleBrief,
       },
@@ -34,13 +39,18 @@ describe("capability registry", () => {
 
     assert.equal(githubSync?.risk, "read");
     assert.equal(githubSync?.requiresApproval, false);
-    assert.equal(githubSync?.status, "planned");
+    assert.equal(githubSync?.status, "available");
     assert.equal(startCodexTask?.approval, "required");
     assert.equal(startCodexTask?.requiresApproval, true);
   });
 
   it("executes the available morning brief read capability", async () => {
     const registry = createCapabilityRegistry({
+      githubProvider: {
+        syncActivity: async () => {
+          throw new Error("Not used");
+        },
+      },
       morningBriefService: {
         getMorningBrief: async () => sampleBrief,
       },
@@ -52,15 +62,38 @@ describe("capability registry", () => {
     );
   });
 
-  it("does not execute planned capabilities", async () => {
+  it("executes the available GitHub sync capability", async () => {
     const registry = createCapabilityRegistry({
+      githubProvider: {
+        syncActivity: async () => ({
+          syncedAt: "2026-07-02T10:00:00.000Z",
+          since: "2026-07-01T10:00:00.000Z",
+          username: "kabeer",
+          activities: [],
+          workItems: [],
+          recommendedActions: [],
+        }),
+      },
       morningBriefService: {
         getMorningBrief: async () => sampleBrief,
       },
     });
 
+    assert.deepEqual(await registry.executeCapability("github.sync", {}), {
+      syncedAt: "2026-07-02T10:00:00.000Z",
+      since: "2026-07-01T10:00:00.000Z",
+      username: "kabeer",
+      activities: [],
+      workItems: [],
+      recommendedActions: [],
+    });
+  });
+
+  it("does not execute planned capabilities", async () => {
+    const registry = createCapabilityRegistry();
+
     await assert.rejects(
-      () => registry.executeCapability("github.sync", {}),
+      () => registry.executeCapability("codex.startTask", {}),
       CapabilityNotExecutableError,
     );
   });

@@ -24,10 +24,11 @@ We are intentionally building the deterministic GitHub button flow first.
 
 For now:
 
-- Dashboard reads a morning brief.
-- User clicks sync.
+- Dashboard reads a morning brief on load.
+- User clicks the GitHub sync button.
 - Backend runs known GitHub sync capability.
-- Backend normalizes GitHub signals into work items.
+- Backend reads recent GitHub user activity.
+- Backend normalizes GitHub activity into work items.
 - Dashboard shows important work and recommended actions.
 
 Later:
@@ -112,7 +113,7 @@ Current capabilities:
 | Capability | Status | Risk | Approval | Purpose |
 | --- | --- | --- | --- | --- |
 | `morningBrief.read` | available | read | none | Return current morning brief. |
-| `github.sync` | planned | read | none | Fetch GitHub signals and normalize work items. |
+| `github.sync` | available | read | none | Fetch recent GitHub activity and normalize work items. |
 | `workItem.markSeen` | planned | write | none | Mark a known work item as seen. |
 | `url.open` | planned | read | none | Open a known URL from a work item or action. |
 | `codex.draftTask` | planned | draft | none | Draft a Codex task without starting it. |
@@ -149,17 +150,25 @@ Implemented:
 ```text
 GET /api/morning-brief
 GET /api/capabilities
+POST /api/github/sync
 ```
 
 `GET /api/morning-brief` now executes the internal `morningBrief.read` capability. The response is mocked but typed.
 
-Planned next:
+`POST /api/github/sync` executes the internal `github.sync` capability. The first version returns GitHub events for the authenticated GitHub user, filtered to the requested time window. Push events include normalized commit metadata so the dashboard and future orchestrator can show commit messages without re-reading raw GitHub payloads.
+
+Default request:
 
 ```text
 POST /api/github/sync
+{}
 ```
 
-That route should execute `github.sync` through the capability registry.
+Default behavior:
+
+- `lookbackHours` defaults to `24`
+- `since` can override the computed lookback window
+- max lookback is `168` hours
 
 ## Current Data Contracts
 
@@ -191,6 +200,20 @@ Main concepts:
 - availability status
 - input/output schema names
 
+GitHub sync contracts:
+
+```text
+packages/contracts/src/github.ts
+```
+
+Main concepts:
+
+- `GitHubSyncInput`
+- `GitHubActivity`
+- `GitHubSyncResult`
+
+`GitHubActivity` is the normalized unit the app should pass around. It includes the repo/project, activity type, action label, title, summary, URL, timestamp, and provider metadata such as push branch, commit count, and commit messages.
+
 ## Provider Boundaries
 
 Providers are replaceable implementations behind stable interfaces.
@@ -201,7 +224,21 @@ Near-term provider:
 GitHubProvider
 ```
 
-It should hide `gh` CLI details from routes and capabilities.
+Implemented provider:
+
+```text
+apps/server/src/providers/github.ts
+```
+
+It hides `gh` CLI details from routes and capabilities.
+
+Current allowlisted commands:
+
+```text
+gh api user --jq .login
+gh api /users/{login}/events?per_page=100
+gh api /repos/{owner}/{repo}/compare/{before}...{head}
+```
 
 Future providers:
 
@@ -230,15 +267,27 @@ run("gh pr list ...")
 
 Recommended first version:
 
+1. Use `gh` CLI from the server only.
+2. Use allowlisted read-only commands.
+3. Fetch authenticated user's recent GitHub events.
+4. Filter to the last 24 hours by default.
+5. Normalize activity into `GitHubActivity[]`.
+6. Normalize activity into `WorkItem[]`.
+7. Return sync result from `POST /api/github/sync`.
+
+Current limitation:
+
+- GitHub user events are the first approximation of "what I did."
+- This is good enough for an initial 24-hour activity view.
+- Later versions should add deeper queries for private review/comment edge cases if needed.
+
+Next GitHub sync version:
+
 1. Configure a repo list locally.
-2. Use `gh` CLI from the server only.
-3. Use allowlisted read-only commands.
-4. Fetch:
-   - PRs requesting review
-   - assigned issues
-   - failed workflow runs for configured repos
-5. Normalize everything into `WorkItem[]`.
-6. Return/update the morning brief.
+2. Fetch PRs requesting review.
+3. Fetch assigned issues.
+4. Fetch failed workflow runs for configured repos.
+5. Merge those attention signals with recent activity.
 
 Why configured repos first:
 
@@ -312,7 +361,9 @@ packages/contracts/src/capabilities.ts
 packages/contracts/src/morning-brief.ts
 apps/server/src/capabilities/registry.ts
 apps/server/src/routes/capabilities.ts
+apps/server/src/routes/github.ts
 apps/server/src/routes/morning-brief.ts
+apps/server/src/providers/github.ts
 apps/server/src/services/morning-brief.ts
 apps/web/src/routes/_auth/dashboard.tsx
 apps/web/src/lib/api.ts
@@ -328,14 +379,19 @@ Done:
 - server capability registry
 - `GET /api/capabilities`
 - `morningBrief.read` routed through registry
+- GitHub sync contract
+- read-only `GitHubProvider` using allowlisted `gh api` calls
+- `github.sync` routed through registry
+- `POST /api/github/sync`
+- dashboard reads `GET /api/morning-brief`
+- dashboard button calls `POST /api/github/sync`
+- dashboard renders recent GitHub activity from the sync result, grouped by project and split into pushes, issues, pull requests, and other activity
 
 Next:
 
-- wire dashboard to `GET /api/morning-brief`
-- implement `github.sync` capability
-- add `POST /api/github/sync`
-- add GitHub provider using allowlisted `gh` CLI calls
-- decide local repo config format
+- decide local repo config format for PR/issue/workflow attention signals
+- add persistence for last sync result
+- merge PR/issue/workflow attention signals into the morning brief
 
 ## Maintenance Rule
 

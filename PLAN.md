@@ -301,6 +301,8 @@ Replace the starter dashboard with:
 
 Outcome: the product feels real before integrations are wired.
 
+Status: done. The dashboard now loads `GET /api/morning-brief` for recommendations, exposes a GitHub sync button, and no longer shows the mocked important-work section.
+
 ### Step 5: Wire GitHub Read-Only Sync
 
 Use `gh` CLI from the local server to fetch:
@@ -312,6 +314,8 @@ Use `gh` CLI from the local server to fetch:
 Start with read-only commands.
 
 Outcome: the dashboard shows real GitHub data.
+
+Status: in progress. The backend now has a read-only `github.sync` capability and `POST /api/github/sync` for recent GitHub activity over the last 24 hours by default. Push events include commit metadata, and the dashboard groups synced activity by project with separate push, issue, pull request, and other sections. The PR/issue/workflow attention queries are still next.
 
 ### Step 6: Add Local Persistence
 

@@ -5,15 +5,24 @@ import {
   deleteAccountInputSchema,
   exampleProjectListSchema,
   exampleProjectSchema,
+  githubSyncInputSchema,
+  githubSyncResultSchema,
   meResponseSchema,
+  morningBriefSchema,
   updateAccountInputSchema,
   updateExampleProjectInputSchema,
   type CreateExampleProjectInput,
   type DeleteAccountInput,
   type ExampleProject,
+  type GitHubActivity,
+  type GitHubSyncInput,
+  type GitHubSyncResult,
+  type MorningBrief,
   type MeResponse,
+  type RecommendedAction,
   type UpdateAccountInput,
   type UpdateExampleProjectInput,
+  type WorkItem,
 } from "@app-starter/contracts";
 import { env } from "@app-starter/env/web";
 
@@ -23,9 +32,15 @@ export type {
   CreateExampleProjectInput,
   DeleteAccountInput,
   ExampleProject,
+  GitHubActivity,
+  GitHubSyncInput,
+  GitHubSyncResult,
+  MorningBrief,
   MeResponse,
+  RecommendedAction,
   UpdateAccountInput,
   UpdateExampleProjectInput,
+  WorkItem,
 };
 export { ApiError };
 
@@ -37,6 +52,18 @@ const api = createApiClient({
 
 export function getMe() {
   return api.requestJson("/api/me", meResponseSchema);
+}
+
+export function getMorningBrief() {
+  return api.requestJson("/api/morning-brief", morningBriefSchema);
+}
+
+export function syncGitHub(input: Partial<GitHubSyncInput> = {}) {
+  const body = githubSyncInputSchema.parse(input);
+  return api.requestJson("/api/github/sync", githubSyncResultSchema, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
 }
 
 export function updateAccount(input: UpdateAccountInput) {

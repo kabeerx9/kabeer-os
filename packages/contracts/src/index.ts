@@ -14,6 +14,16 @@ export {
   type CapabilityStatus,
 } from "./capabilities";
 export {
+  githubActivitySchema,
+  githubActivityTypeSchema,
+  githubSyncInputSchema,
+  githubSyncResultSchema,
+  type GitHubActivity,
+  type GitHubActivityType,
+  type GitHubSyncInput,
+  type GitHubSyncResult,
+} from "./github";
+export {
   deleteAccountInputSchema,
   updateAccountInputSchema,
   type DeleteAccountInput,

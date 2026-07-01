@@ -7,15 +7,24 @@ import {
   type CapabilityRisk,
   type CapabilityStatus,
 } from "@app-starter/contracts/capabilities";
+import {
+  githubSyncInputSchema,
+  githubSyncResultSchema,
+} from "@app-starter/contracts/github";
 import { morningBriefSchema } from "@app-starter/contracts/morning-brief";
 import { z, type ZodType } from "zod";
 
+import {
+  defaultGitHubProvider,
+  type GitHubProvider,
+} from "@/providers/github";
 import {
   defaultMorningBriefService,
   type MorningBriefService,
 } from "@/services/morning-brief";
 
 export type CapabilityExecutionContext = {
+  githubProvider: GitHubProvider;
   morningBriefService: MorningBriefService;
 };
 
@@ -61,7 +70,6 @@ export type ExecuteCapabilityOptions = {
 export type CapabilityRegistry = ReturnType<typeof createCapabilityRegistry>;
 
 const noInputSchema = z.object({}).strict();
-const plannedInputSchema = z.unknown();
 const plannedOutputSchema = z.unknown();
 
 const capabilityDefinitions: CapabilityDefinition[] = [
@@ -80,15 +88,17 @@ const capabilityDefinitions: CapabilityDefinition[] = [
   },
   {
     name: "github.sync",
-    description: "Fetch read-only GitHub work signals and normalize them into work items.",
+    description: "Fetch your read-only GitHub activity from the requested time window.",
     risk: "read",
     approval: "none",
-    status: "planned",
+    status: "available",
     inputSchemaName: "githubSyncInput",
     outputSchemaName: "githubSyncResult",
-    inputSchema: plannedInputSchema,
-    outputSchema: plannedOutputSchema,
+    inputSchema: githubSyncInputSchema,
+    outputSchema: githubSyncResultSchema,
     tags: ["github", "sync", "read"],
+    execute: async (input, context) =>
+      context.githubProvider.syncActivity(githubSyncInputSchema.parse(input)),
   },
   {
     name: "workItem.markSeen",
@@ -98,7 +108,7 @@ const capabilityDefinitions: CapabilityDefinition[] = [
     status: "planned",
     inputSchemaName: "markWorkItemSeenInput",
     outputSchemaName: "workItemState",
-    inputSchema: plannedInputSchema,
+    inputSchema: z.unknown(),
     outputSchema: plannedOutputSchema,
     tags: ["work-items", "state"],
   },
@@ -110,7 +120,7 @@ const capabilityDefinitions: CapabilityDefinition[] = [
     status: "planned",
     inputSchemaName: "openUrlInput",
     outputSchemaName: "openUrlResult",
-    inputSchema: plannedInputSchema,
+    inputSchema: z.unknown(),
     outputSchema: plannedOutputSchema,
     tags: ["navigation", "local"],
   },
@@ -122,7 +132,7 @@ const capabilityDefinitions: CapabilityDefinition[] = [
     status: "planned",
     inputSchemaName: "draftCodexTaskInput",
     outputSchemaName: "codingTask",
-    inputSchema: plannedInputSchema,
+    inputSchema: z.unknown(),
     outputSchema: plannedOutputSchema,
     tags: ["codex", "draft"],
   },
@@ -134,7 +144,7 @@ const capabilityDefinitions: CapabilityDefinition[] = [
     status: "planned",
     inputSchemaName: "startCodexTaskInput",
     outputSchemaName: "agentRun",
-    inputSchema: plannedInputSchema,
+    inputSchema: z.unknown(),
     outputSchema: plannedOutputSchema,
     tags: ["codex", "approval", "write"],
   },
@@ -155,10 +165,14 @@ function serializeCapability(definition: CapabilityDefinition): Capability {
 }
 
 export function createCapabilityRegistry(
-  context: CapabilityExecutionContext = {
-    morningBriefService: defaultMorningBriefService,
-  },
+  contextOverrides: Partial<CapabilityExecutionContext> = {},
 ) {
+  const context: CapabilityExecutionContext = {
+    githubProvider: defaultGitHubProvider,
+    morningBriefService: defaultMorningBriefService,
+    ...contextOverrides,
+  };
+
   const definitionsByName = new Map(
     capabilityDefinitions.map((definition) => [definition.name, definition]),
   );

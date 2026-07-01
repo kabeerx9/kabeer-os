@@ -7,6 +7,7 @@ export const workItemKindSchema = z.enum([
   "assigned_issue",
   "failed_workflow",
   "mention",
+  "github_activity",
 ]);
 
 export const workItemPrioritySchema = z.enum(["high", "medium", "low"]);

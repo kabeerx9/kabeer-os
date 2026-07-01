@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./capabilities": "./src/capabilities.ts",
+    "./github": "./src/github.ts",
     "./http": "./src/http.ts",
     "./me": "./src/me.ts",
     "./account": "./src/account.ts",
