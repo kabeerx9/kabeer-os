@@ -1,46 +1,69 @@
-import { UserButton, useUser } from "@clerk/react";
+import { Button } from "@app-starter/ui/components/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@app-starter/ui/components/card";
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-
-import { ApiError, getMe, type MeResponse } from "@/lib/api";
-import { ExampleProjectsPanel } from "@/components/example-projects";
 
 export const Route = createFileRoute("/_auth/dashboard")({
   component: DashboardPage,
 });
 
 function DashboardPage() {
-  const { user } = useUser();
-  const [me, setMe] = useState<MeResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    getMe()
-      .then(setMe)
-      .catch((err: unknown) => {
-        setError(err instanceof ApiError ? err.message : "Failed to load account");
-      });
-  }, []);
-
-  const name =
-    user?.fullName ||
-    user?.firstName ||
-    user?.primaryEmailAddress?.emailAddress ||
-    "there";
-
   return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-6 p-6">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 p-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">App Starter</h1>
-        <UserButton />
+        <div>
+          <p className="text-sm text-muted-foreground">30-Second Morning</p>
+          <h1 className="text-2xl font-semibold">Good morning, Kabeer</h1>
+        </div>
+        <Button disabled>Sync GitHub</Button>
       </div>
-      <p className="text-muted-foreground">Welcome, {name}</p>
-      <div className="rounded-lg border p-6">
-        <p className="text-sm text-muted-foreground">Signed-in account</p>
-        <p className="mt-1 font-medium">{me?.email ?? "Loading..."}</p>
-        {error ? <p className="mt-2 text-sm text-destructive">{error}</p> : null}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">GitHub</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-semibold">3</p>
+            <p className="text-sm text-muted-foreground">mock work items</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Recommended</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-semibold">2</p>
+            <p className="text-sm text-muted-foreground">next actions</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Codex</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-semibold">0</p>
+            <p className="text-sm text-muted-foreground">active tasks</p>
+          </CardContent>
+        </Card>
       </div>
-      <ExampleProjectsPanel />
+      <Card>
+        <CardHeader>
+          <CardTitle>Important work</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="rounded-md border p-4">
+            <p className="font-medium">Failed workflow on private-contest</p>
+            <p className="text-sm text-muted-foreground">
+              Mock data for the first dashboard shell.
+            </p>
+          </div>
+          <div className="rounded-md border p-4">
+            <p className="font-medium">PR review requested</p>
+            <p className="text-sm text-muted-foreground">
+              This will come from GitHub after the mock route is wired.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
