@@ -287,6 +287,8 @@ Return mocked data first:
 
 Outcome: UI can be built without GitHub API complexity.
 
+Status: done. The endpoint returns a mocked typed morning brief with three GitHub work items and two recommended actions.
+
 ### Step 4: Build The First Dashboard
 
 Replace the starter dashboard with:

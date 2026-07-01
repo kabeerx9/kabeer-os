@@ -8,7 +8,8 @@
     "./http": "./src/http.ts",
     "./me": "./src/me.ts",
     "./account": "./src/account.ts",
-    "./example-projects": "./src/example-projects.ts"
+    "./example-projects": "./src/example-projects.ts",
+    "./morning-brief": "./src/morning-brief.ts"
   },
   "scripts": {
     "check-types": "tsc --noEmit",

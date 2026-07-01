@@ -1,6 +1,8 @@
 import fastifyCors from "@fastify/cors";
 import Fastify from "fastify";
 
+import { registerMorningBriefRoutes } from "./routes/morning-brief";
+
 const baseCorsConfig = {
   origin: process.env.CORS_ORIGIN ?? "http://localhost:3001",
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
@@ -14,6 +16,7 @@ const fastify = Fastify({
 });
 
 fastify.register(fastifyCors, baseCorsConfig);
+fastify.register(registerMorningBriefRoutes);
 
 fastify.get("/", async () => {
   return "OK";
