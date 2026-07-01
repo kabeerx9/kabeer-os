@@ -7,92 +7,88 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.58 0.22 27);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.809 0.105 251.813);
-  --chart-2: oklch(0.623 0.214 259.815);
-  --chart-3: oklch(0.546 0.245 262.881);
-  --chart-4: oklch(0.488 0.243 264.376);
-  --chart-5: oklch(0.424 0.199 265.638);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  /* Zapier-Inspired Light Mode (Warm Cream & Coffee Ink) */
+  --background: #fffefb; /* canvas */
+  --foreground: #201515; /* ink */
+  
+  --card: #f8f4f0; /* canvas-soft */
+  --card-foreground: #201515;
+  
+  --popover: #fffefb;
+  --popover-foreground: #201515;
+  
+  --primary: #ff4f00; /* Zapier Orange */
+  --primary-foreground: #fffefb; /* on-primary */
+  
+  --secondary: #201515; /* secondary buttons are ink */
+  --secondary-foreground: #fffefb;
+  
+  --muted: #f8f4f0; /* canvas-soft */
+  --muted-foreground: #605d52; /* body */
+  
+  --accent: #f8f4f0;
+  --accent-foreground: #201515;
+  
+  --destructive: #dc2626; /* keep standard red for destructive */
+  --destructive-foreground: #fffefb;
+  
+  --border: #c5c0b1; /* mute */
+  --input: #c5c0b1;
+  --ring: #ff4f00;
+  
+  --radius: 0.75rem; /* 12px (md) */
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.87 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.371 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.809 0.105 251.813);
-  --chart-2: oklch(0.623 0.214 259.815);
-  --chart-3: oklch(0.546 0.245 262.881);
-  --chart-4: oklch(0.488 0.243 264.376);
-  --chart-5: oklch(0.424 0.199 265.638);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  /* Zapier-Inspired Dark Mode (Polarity Flipped) */
+  --background: #201515; /* ink */
+  --foreground: #fffefb; /* canvas */
+  
+  --card: #2f2a26; /* ink-soft */
+  --card-foreground: #fffefb;
+  
+  --popover: #201515;
+  --popover-foreground: #fffefb;
+  
+  --primary: #ff4f00; /* Zapier Orange */
+  --primary-foreground: #fffefb;
+  
+  --secondary: #fffefb; /* inverse */
+  --secondary-foreground: #201515;
+  
+  --muted: #2f2a26;
+  --muted-foreground: #c5c0b1; /* mute */
+  
+  --accent: #2f2a26;
+  --accent-foreground: #fffefb;
+  
+  --destructive: #dc2626;
+  --destructive-foreground: #fffefb;
+  
+  --border: #36342e; /* ink-mid */
+  --input: #36342e;
+  --ring: #ff4f00;
 }
 
 @theme inline {
-  --font-sans: "Inter Variable", sans-serif;
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
+  --font-sans: "Inter", "Inter Variable", system-ui, -apple-system, sans-serif;
+  --font-display: "Inter", "Inter Variable", system-ui, -apple-system, sans-serif;
+  
+  --color-zap-primary: #ff4f00;
+  --color-zap-on-primary: #fffefb;
+  --color-zap-ink: #201515;
+  --color-zap-ink-soft: #2f2a26;
+  --color-zap-ink-mid: #36342e;
+  --color-zap-body: #605d52;
+  --color-zap-body-mid: #939084;
+  --color-zap-mute: #c5c0b1;
+  --color-zap-canvas: #fffefb;
+  --color-zap-canvas-soft: #f8f4f0;
+
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
+  --color-destructive-foreground: var(--destructive-foreground);
   --color-destructive: var(--destructive);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
@@ -108,13 +104,11 @@
   --color-card: var(--card);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 8px);
-  --radius-3xl: calc(var(--radius) + 12px);
-  --radius-4xl: calc(var(--radius) + 16px);
+  
+  --radius-sm: calc(var(--radius) - 4px); /* 8px */
+  --radius-md: var(--radius); /* 12px */
+  --radius-lg: calc(var(--radius) + 4px); /* 16px */
+  --radius-full: 9999px;
 }
 
 @layer base {
@@ -122,9 +116,84 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply font-sans bg-background text-foreground;
+    @apply font-sans bg-background text-foreground selection:bg-primary/20 selection:text-primary;
   }
-  html {
-    @apply font-sans;
-  }
+}
+
+/* Zapier Typography Utilities */
+@utility text-display-xl {
+  @apply font-display text-[56px] font-medium leading-[56px] tracking-normal;
+}
+
+@utility text-display-lg {
+  @apply font-display text-[48px] font-medium leading-[48px] tracking-normal;
+}
+
+@utility text-display-md {
+  @apply font-display text-[32px] font-medium leading-[36px] tracking-[1px];
+}
+
+@utility text-display-sub-lg {
+  @apply font-sans text-[48px] font-medium leading-[49.92px] tracking-normal;
+}
+
+@utility text-display-sub-md {
+  @apply font-sans text-[32px] font-normal leading-[40px] tracking-normal;
+}
+
+@utility text-display-sub-sm {
+  @apply font-sans text-[24px] font-semibold leading-[30px] tracking-[-0.6px];
+}
+
+@utility text-display-xs {
+  @apply font-sans text-[20px] font-bold leading-[25px] tracking-[-0.5px];
+}
+
+@utility text-body-lg {
+  @apply font-sans text-[20px] font-normal leading-[30px] tracking-[-0.2px];
+}
+
+@utility text-body-md {
+  @apply font-sans text-[18px] font-normal leading-[27px] tracking-normal;
+}
+
+@utility text-body-md-strong {
+  @apply font-sans text-[18px] font-semibold leading-[27px] tracking-normal;
+}
+
+@utility text-body-sm {
+  @apply font-sans text-[16px] font-normal leading-[24px] tracking-normal;
+}
+
+@utility text-body-sm-strong {
+  @apply font-sans text-[16px] font-semibold leading-[24px] tracking-normal;
+}
+
+@utility text-caption {
+  @apply font-sans text-[14px] font-normal leading-[21px] tracking-normal;
+}
+
+@utility text-eyebrow {
+  @apply font-display text-[14px] font-medium leading-[14px] tracking-[1px] uppercase;
+}
+
+/* Custom Card Utilities */
+@utility card-content {
+  @apply bg-card text-card-foreground rounded-md p-6 border-0 shadow-none;
+}
+
+@utility card-feature-cream {
+  @apply bg-zap-canvas-soft dark:bg-zap-ink-soft text-foreground rounded-md p-6 border-0 shadow-none;
+}
+
+@utility card-feature-dark {
+  @apply bg-zap-ink dark:bg-zap-canvas-soft text-zap-on-primary dark:text-zap-ink rounded-md p-6 border-0 shadow-none;
+}
+
+@utility content-band-cream {
+  @apply bg-zap-canvas-soft dark:bg-zap-ink-soft py-16 px-6;
+}
+
+@utility content-band-light {
+  @apply bg-zap-canvas dark:bg-zap-ink py-16 px-6;
 }

@@ -5,16 +5,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@app-starter/ui/compon
 import { createFileRoute } from "@tanstack/react-router";
 import {
   AtSign,
+  ChevronDown,
   CircleDot,
   ExternalLink,
   GitBranch,
   GitCommit,
   GitPullRequest,
+  GitGraph,
   MessageSquare,
   RefreshCw,
+  Sparkles,
   Tag,
   UserRound,
   XCircle,
+  Zap,
 } from "lucide-react";
 
 import {
@@ -366,52 +370,72 @@ function DashboardPage() {
   }, [syncResult]);
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 p-4 sm:p-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-sm text-muted-foreground">30-Second Morning</p>
-          <h1 className="text-2xl font-semibold">Good morning, Kabeer</h1>
+    <div className="min-h-screen bg-background pb-12">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 p-4 sm:p-6 lg:p-8">
+        <header className="flex flex-col gap-4 border-b border-border bg-background py-6 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-4">
+            <div className="flex size-12 items-center justify-center rounded-md bg-zap-canvas-soft text-zap-primary">
+              <Zap className="size-6" />
+            </div>
+            <div>
+              <p className="text-eyebrow text-zap-primary">30-Second Morning</p>
+              <h1 className="text-display-sub-sm text-zap-ink">Good morning, Kabeer</h1>
+            </div>
+          </div>
+          <Button 
+            onClick={() => void handleGitHubSync()} 
+            disabled={syncing}
+            className="rounded-md bg-primary text-zap-on-primary text-body-sm-strong hover:bg-primary/90 shadow-none px-6 py-2 h-auto"
+          >
+            <RefreshCw className={syncing ? "animate-spin" : undefined} data-icon="inline-start" />
+            {syncing ? "Syncing workspace" : "Sync GitHub"}
+          </Button>
+        </header>
+
+        <div className="grid gap-6 md:grid-cols-3">
+          <Card className="card-content">
+            <CardHeader className="pb-2 p-0 mb-4">
+              <CardTitle className="flex items-center gap-2 text-body-sm-strong text-zap-ink">
+                <GitGraph className="size-4 text-zap-body" />
+                GitHub Activity
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <p className="text-display-md text-zap-ink">{githubCount}</p>
+              <p className="mt-1 text-body-sm text-zap-body">
+                {syncResult
+                  ? `Across ${pluralize(githubProjectCount, "project")}`
+                  : "Sync to load activity"}
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="card-content">
+            <CardHeader className="pb-2 p-0 mb-4">
+              <CardTitle className="flex items-center gap-2 text-body-sm-strong text-zap-ink">
+                <Sparkles className="size-4 text-zap-body" />
+                New Items
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <p className="text-display-md text-zap-ink">{newActivityCount}</p>
+              <p className="mt-1 text-body-sm text-zap-body">
+                {syncResult ? "Since previous sync" : "After first sync"}
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="card-feature-dark">
+            <CardHeader className="pb-2 p-0 mb-4">
+              <CardTitle className="flex items-center gap-2 text-body-sm-strong text-zap-on-primary">
+                <CircleDot className="size-4 text-zap-mute" />
+                Attention Required
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <p className="text-display-md text-zap-primary">{attentionCount}</p>
+              <p className="mt-1 text-body-sm text-zap-on-primary">Open items</p>
+            </CardContent>
+          </Card>
         </div>
-        <Button onClick={() => void handleGitHubSync()} disabled={syncing}>
-          <RefreshCw className={syncing ? "animate-spin" : undefined} data-icon="inline-start" />
-          {syncing ? "Syncing" : "Sync GitHub"}
-        </Button>
-      </div>
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">GitHub</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-semibold">{githubCount}</p>
-            <p className="text-sm text-muted-foreground">
-              {syncResult
-                ? `activities across ${pluralize(githubProjectCount, "project")}`
-                : "sync to load activity"}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">New</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-semibold">{newActivityCount}</p>
-            <p className="text-sm text-muted-foreground">
-              {syncResult ? "since previous sync" : "after first sync"}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Attention</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-semibold">{attentionCount}</p>
-            <p className="text-sm text-muted-foreground">open items</p>
-          </CardContent>
-        </Card>
-      </div>
 
       {syncError ? (
         <StatusPanel
@@ -428,15 +452,15 @@ function DashboardPage() {
         />
       ) : null}
 
-      <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.75fr)]">
-        <Card>
-          <CardHeader>
-            <CardTitle>GitHub activity</CardTitle>
-            <p className="text-xs text-muted-foreground">
+      <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(340px,0.75fr)]">
+        <Card className="card-content p-0 border border-border">
+          <CardHeader className="border-b border-border bg-zap-canvas-soft p-6">
+            <CardTitle className="text-display-sub-sm text-zap-ink">Activity Feed</CardTitle>
+            <p className="text-body-sm text-zap-body">
               {syncWindow ?? "Last 24 hours after sync"}
             </p>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0 pt-0">
             {syncing ? (
               <LoadingState label="Syncing GitHub activity..." />
             ) : syncSnapshotLoading ? (
@@ -452,21 +476,22 @@ function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Needs attention</CardTitle>
+        <Card className="card-content p-0 border border-border h-fit">
+          <CardHeader className="border-b border-border bg-zap-canvas-soft p-6">
+            <CardTitle className="text-display-sub-sm text-zap-ink">Needs Attention</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0 pt-0">
             {attentionLoading ? (
               <LoadingState label="Syncing attention..." />
             ) : attentionResult?.items.length ? (
               <AttentionList items={attentionResult.items} />
             ) : (
-              <EmptyState label="No GitHub attention items right now." />
+              <EmptyState label="You're all caught up! No items need your attention right now." />
             )}
           </CardContent>
         </Card>
       </section>
+      </div>
     </div>
   );
 }
@@ -481,9 +506,12 @@ function StatusPanel({
   onAction: () => void;
 }) {
   return (
-    <div className="flex flex-col gap-3 border border-destructive/30 p-4 text-sm sm:flex-row sm:items-center sm:justify-between">
-      <p className="text-destructive">{message}</p>
-      <Button variant="outline" onClick={onAction}>
+    <div className="flex flex-col gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-center gap-2 text-destructive">
+        <XCircle className="size-4" />
+        <p className="font-medium">{message}</p>
+      </div>
+      <Button variant="outline" size="sm" onClick={onAction} className="border-destructive/30 hover:bg-destructive/10">
         {actionLabel}
       </Button>
     </div>
@@ -491,11 +519,23 @@ function StatusPanel({
 }
 
 function LoadingState({ label }: { label: string }) {
-  return <p className="text-sm text-muted-foreground">{label}</p>;
+  return (
+    <div className="flex flex-col items-center justify-center p-12 text-muted-foreground">
+      <RefreshCw className="mb-4 size-6 animate-spin text-primary" />
+      <p className="text-sm font-medium">{label}</p>
+    </div>
+  );
 }
 
 function EmptyState({ label }: { label: string }) {
-  return <p className="border border-dashed p-4 text-sm text-muted-foreground">{label}</p>;
+  return (
+    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/60 bg-muted/10 p-12 text-center text-muted-foreground">
+      <div className="mb-3 flex size-10 items-center justify-center rounded-full bg-muted">
+        <Sparkles className="size-5" />
+      </div>
+      <p className="text-sm font-medium">{label}</p>
+    </div>
+  );
 }
 
 function GitHubActivityList({
@@ -516,12 +556,13 @@ function GitHubActivityList({
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      {projects.map((project) => (
+    <div className="flex flex-col gap-4 p-4">
+      {projects.map((project, index) => (
         <ProjectActivityGroupView
           key={project.repo}
           project={project}
           newActivityIdSet={newActivityIdSet}
+          isDefaultExpanded={index === 0}
         />
       ))}
     </div>
@@ -531,60 +572,75 @@ function GitHubActivityList({
 function ProjectActivityGroupView({
   project,
   newActivityIdSet,
+  isDefaultExpanded,
 }: {
   project: ProjectActivityGroup;
   newActivityIdSet: ReadonlySet<string>;
+  isDefaultExpanded: boolean;
 }) {
+  const [isExpanded, setIsExpanded] = useState(isDefaultExpanded || project.newActivityCount > 0);
+
   return (
-    <section className="overflow-hidden border">
-      <div className="flex flex-col gap-3 border-b p-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
+    <section className="mb-2 rounded-md border border-border bg-background shadow-sm overflow-hidden transition-all hover:shadow-md">
+      <div 
+        className="flex flex-col gap-3 border-b border-border bg-zap-canvas-soft p-6 sm:flex-row sm:items-center sm:justify-between cursor-pointer hover:bg-black/5 transition-colors"
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="break-words text-sm font-semibold">{project.repo}</p>
+            <p className="break-words text-body-md-strong text-zap-ink">{project.repo}</p>
             {project.newActivityCount > 0 ? <NewBadge /> : null}
-            <span className="text-xs text-muted-foreground">
+            <span className="text-caption text-zap-mute">
               Latest {formatDateTime(project.latestAt)}
             </span>
           </div>
-          <p className="mt-1 break-words text-xs text-muted-foreground">{projectStats(project)}</p>
+          <p className="mt-1 break-words text-caption text-zap-body">{projectStats(project)}</p>
         </div>
-        <a
-          className={buttonVariants({ variant: "ghost", size: "icon-xs" })}
-          href={project.repoUrl}
-          target="_blank"
-          rel="noreferrer"
-          aria-label={`Open ${project.repo} on GitHub`}
-        >
-          <ExternalLink />
-        </a>
+        <div className="flex items-center gap-2">
+          <a
+            className={buttonVariants({ variant: "ghost", size: "icon" })}
+            href={project.repoUrl}
+            target="_blank"
+            rel="noreferrer"
+            aria-label={`Open ${project.repo} on GitHub`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <ExternalLink className="size-4 text-zap-body hover:text-zap-ink" />
+          </a>
+          <button className="p-2 text-zap-body hover:text-zap-ink transition-colors">
+            <ChevronDown className={`size-5 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+          </button>
+        </div>
       </div>
 
-      <div className="divide-y">
-        {project.sections.map((section) => (
-          <section key={section.key}>
-            <div className="flex items-center justify-between gap-3 bg-muted/40 px-3 py-2">
-              <div className="flex items-center gap-2">
-                <p className="text-[11px] font-medium uppercase text-muted-foreground">
-                  {section.label}
-                </p>
-                {section.newActivityCount > 0 ? <NewBadge /> : null}
+      {isExpanded && (
+        <div className="flex flex-col gap-4 p-6">
+          {project.sections.map((section) => (
+            <section key={section.key} className="rounded-md border border-border overflow-hidden">
+              <div className="flex items-center justify-between gap-3 bg-zap-canvas-soft px-6 py-3 border-b border-border">
+                <div className="flex items-center gap-2">
+                  <p className="text-eyebrow text-zap-ink">
+                    {section.label}
+                  </p>
+                  {section.newActivityCount > 0 ? <NewBadge /> : null}
+                </div>
+                <span className="text-caption text-zap-mute">
+                  {pluralize(section.activities.length, "item")}
+                </span>
               </div>
-              <span className="text-xs text-muted-foreground">
-                {pluralize(section.activities.length, "item")}
-              </span>
-            </div>
-            <ul className="divide-y">
-              {section.activities.map((activity) => (
-                <ProjectActivityRow
-                  key={activity.id}
-                  activity={activity}
-                  isNew={newActivityIdSet.has(activity.id)}
-                />
-              ))}
-            </ul>
-          </section>
-        ))}
-      </div>
+              <ul className="flex flex-col">
+                {section.activities.map((activity) => (
+                  <ProjectActivityRow
+                    key={activity.id}
+                    activity={activity}
+                    isNew={newActivityIdSet.has(activity.id)}
+                  />
+                ))}
+              </ul>
+            </section>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
@@ -599,35 +655,37 @@ function ProjectActivityRow({
   const commits = activity.type === "push" ? getPushCommits(activity) : [];
 
   return (
-    <li className="px-3 py-3">
+    <li className="px-6 py-4 hover:bg-zap-canvas-soft border-b border-border last:border-b-0 transition-colors">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex min-w-0 gap-3">
-          <ActivityTypeIcon type={activity.type} />
-          <div className="min-w-0">
+        <div className="flex min-w-0 gap-4">
+          <div className="mt-0.5 flex size-8 items-center justify-center rounded-md bg-zap-canvas-soft text-zap-ink border border-border">
+            <ActivityTypeIcon type={activity.type} />
+          </div>
+          <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="border px-2 py-0.5 text-[11px] text-muted-foreground">
+              <span className="rounded-md bg-border/20 px-2 py-0.5 text-[11px] font-medium text-zap-ink">
                 {activityLabels[activity.type]}
               </span>
               {isNew ? <NewBadge /> : null}
-              <span className="text-xs text-muted-foreground">
+              <span className="text-caption text-zap-mute">
                 {formatDateTime(activity.createdAt)}
               </span>
             </div>
-            <p className="mt-1 break-words text-sm font-medium">{activity.title}</p>
-            <p className="break-words text-xs text-muted-foreground">{activity.summary}</p>
+            <p className="mt-2 break-words text-body-sm-strong text-zap-ink">{activity.title}</p>
+            <p className="mt-1 break-words text-body-sm text-zap-body">{activity.summary}</p>
             {commits.length ? <CommitList commits={commits} /> : null}
           </div>
         </div>
 
         {activity.url ? (
           <a
-            className={buttonVariants({ variant: "ghost", size: "icon-xs" })}
+            className={buttonVariants({ variant: "ghost", size: "icon-xs", className: "shrink-0 opacity-50 transition-opacity hover:opacity-100 text-zap-body hover:text-zap-ink" })}
             href={activity.url}
             target="_blank"
             rel="noreferrer"
             aria-label="Open GitHub activity"
           >
-            <ExternalLink />
+            <ExternalLink className="size-4" />
           </a>
         ) : null}
       </div>
@@ -636,11 +694,11 @@ function ProjectActivityRow({
 }
 
 function NewBadge() {
-  return <span className="border px-2 py-0.5 text-[11px] font-medium">New</span>;
+  return <span className="animate-pulse rounded-full border border-primary/50 bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">New</span>;
 }
 
 function ActivityTypeIcon({ type }: { type: GitHubActivity["type"] }) {
-  const className = "mt-0.5 size-4 shrink-0 text-muted-foreground";
+  const className = "size-4 shrink-0";
 
   switch (type) {
     case "push":
@@ -700,38 +758,81 @@ function CommitList({ commits }: { commits: CommitMetadata[] }) {
 }
 
 function AttentionList({ items }: { items: GitHubAttentionItem[] }) {
+  const groupedItems = useMemo(() => {
+    const map = new Map<string, GitHubAttentionItem[]>();
+    for (const item of items) {
+      if (!map.has(item.repo)) map.set(item.repo, []);
+      map.get(item.repo)!.push(item);
+    }
+    return Array.from(map.entries()).map(([repo, repoItems]) => ({ repo, items: repoItems }));
+  }, [items]);
+
   return (
-    <ul className="flex flex-col divide-y">
-      {items.map((item) => (
-        <li key={item.id} className="flex gap-3 py-3 first:pt-0 last:pb-0">
-          <AttentionIcon kind={item.kind} />
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="border px-2 py-0.5 text-[11px] text-muted-foreground">
-                {attentionKindLabels[item.kind]}
-              </span>
-              <span className="text-xs text-muted-foreground">{item.repo}</span>
-            </div>
-            <p className="mt-1 break-words text-sm font-medium">{item.title}</p>
-            <p className="break-words text-xs text-muted-foreground">{item.summary}</p>
-          </div>
-          <a
-            className={buttonVariants({ variant: "ghost", size: "icon-xs" })}
-            href={item.url}
-            target="_blank"
-            rel="noreferrer"
-            aria-label="Open attention item"
-          >
-            <ExternalLink />
-          </a>
-        </li>
+    <div className="flex flex-col gap-4 p-4">
+      {groupedItems.map((group, index) => (
+        <AttentionGroupView key={group.repo} repo={group.repo} items={group.items} isDefaultExpanded={index === 0} />
       ))}
-    </ul>
+    </div>
+  );
+}
+
+function AttentionGroupView({ repo, items, isDefaultExpanded }: { repo: string; items: GitHubAttentionItem[]; isDefaultExpanded: boolean }) {
+  const [isExpanded, setIsExpanded] = useState(isDefaultExpanded);
+
+  return (
+    <section className="mb-2 rounded-md border border-border bg-background shadow-sm overflow-hidden transition-all hover:shadow-md">
+      <div 
+        className="flex items-center justify-between gap-3 bg-zap-canvas-soft px-6 py-4 border-b border-border cursor-pointer hover:bg-black/5 transition-colors"
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <div className="flex items-center gap-2">
+          <p className="text-body-md-strong text-zap-ink">
+            {repo}
+          </p>
+          <span className="text-caption text-zap-primary font-medium">
+            {pluralize(items.length, "item")}
+          </span>
+        </div>
+        <button className="p-2 text-zap-body hover:text-zap-ink transition-colors">
+          <ChevronDown className={`size-5 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+        </button>
+      </div>
+      
+      {isExpanded && (
+        <ul className="flex flex-col">
+          {items.map((item) => (
+            <li key={item.id} className="flex gap-4 p-6 hover:bg-zap-canvas-soft border-b border-border last:border-b-0 transition-colors">
+              <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md bg-zap-canvas-soft border border-border text-zap-ink">
+                <AttentionIcon kind={item.kind} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-md bg-border/20 px-2 py-0.5 text-[11px] font-medium text-zap-ink">
+                    {attentionKindLabels[item.kind]}
+                  </span>
+                </div>
+                <p className="mt-2 break-words text-body-sm-strong text-zap-ink">{item.title}</p>
+                <p className="mt-1 break-words text-body-sm text-zap-body">{item.summary}</p>
+              </div>
+              <a
+                className={buttonVariants({ variant: "ghost", size: "icon-xs", className: "shrink-0 opacity-50 transition-opacity hover:opacity-100 text-zap-body hover:text-zap-ink" })}
+                href={item.url}
+                target="_blank"
+                rel="noreferrer"
+                aria-label="Open attention item"
+              >
+                <ExternalLink className="size-4" />
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 
 function AttentionIcon({ kind }: { kind: GitHubAttentionItem["kind"] }) {
-  const className = "mt-0.5 size-4 shrink-0 text-muted-foreground";
+  const className = "size-4 shrink-0";
 
   switch (kind) {
     case "review_request":
