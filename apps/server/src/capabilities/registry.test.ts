@@ -25,6 +25,9 @@ describe("capability registry", () => {
         syncActivity: async () => {
           throw new Error("Not used");
         },
+        syncAttention: async () => {
+          throw new Error("Not used");
+        },
       },
       morningBriefService: {
         getMorningBrief: async () => sampleBrief,
@@ -50,6 +53,9 @@ describe("capability registry", () => {
         syncActivity: async () => {
           throw new Error("Not used");
         },
+        syncAttention: async () => {
+          throw new Error("Not used");
+        },
       },
       morningBriefService: {
         getMorningBrief: async () => sampleBrief,
@@ -73,6 +79,9 @@ describe("capability registry", () => {
           workItems: [],
           recommendedActions: [],
         }),
+        syncAttention: async () => {
+          throw new Error("Not used");
+        },
       },
       morningBriefService: {
         getMorningBrief: async () => sampleBrief,
@@ -87,6 +96,37 @@ describe("capability registry", () => {
       workItems: [],
       recommendedActions: [],
     });
+  });
+
+  it("executes the available GitHub attention capability", async () => {
+    const registry = createCapabilityRegistry({
+      githubProvider: {
+        syncActivity: async () => {
+          throw new Error("Not used");
+        },
+        syncAttention: async (input) => ({
+          syncedAt: "2026-07-02T10:00:00.000Z",
+          username: "kabeer",
+          repositories: input.repositories,
+          items: [],
+        }),
+      },
+      morningBriefService: {
+        getMorningBrief: async () => sampleBrief,
+      },
+    });
+
+    assert.deepEqual(
+      await registry.executeCapability("github.attentionSync", {
+        repositories: ["kabeer/kabeer-os"],
+      }),
+      {
+        syncedAt: "2026-07-02T10:00:00.000Z",
+        username: "kabeer",
+        repositories: ["kabeer/kabeer-os"],
+        items: [],
+      },
+    );
   });
 
   it("does not execute planned capabilities", async () => {

@@ -3,6 +3,7 @@ import { z } from "zod";
 export const capabilityNameSchema = z.enum([
   "morningBrief.read",
   "github.sync",
+  "github.attentionSync",
   "workItem.markSeen",
   "url.open",
   "codex.draftTask",

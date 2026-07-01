@@ -8,6 +8,8 @@ import {
   type CapabilityStatus,
 } from "@app-starter/contracts/capabilities";
 import {
+  githubAttentionInputSchema,
+  githubAttentionResultSchema,
   githubSyncInputSchema,
   githubSyncResultSchema,
 } from "@app-starter/contracts/github";
@@ -99,6 +101,20 @@ const capabilityDefinitions: CapabilityDefinition[] = [
     tags: ["github", "sync", "read"],
     execute: async (input, context) =>
       context.githubProvider.syncActivity(githubSyncInputSchema.parse(input)),
+  },
+  {
+    name: "github.attentionSync",
+    description: "Fetch read-only GitHub items that need your attention.",
+    risk: "read",
+    approval: "none",
+    status: "available",
+    inputSchemaName: "githubAttentionInput",
+    outputSchemaName: "githubAttentionResult",
+    inputSchema: githubAttentionInputSchema,
+    outputSchema: githubAttentionResultSchema,
+    tags: ["github", "attention", "read"],
+    execute: async (input, context) =>
+      context.githubProvider.syncAttention(githubAttentionInputSchema.parse(input)),
   },
   {
     name: "workItem.markSeen",

@@ -13,7 +13,7 @@ Kabeer OS is a local personal operator for getting from laptop open to meaningfu
 The first useful loop is:
 
 ```text
-GitHub signal -> work item -> morning brief -> recommended action -> approved worker
+GitHub activity/attention signal -> dashboard -> future summary/action -> approved worker
 ```
 
 The product is not an LLM chat app and not a Codex wrapper. The LLM layer will come later as an intent router and summarizer. It should never directly execute commands or bypass approval policy.
@@ -24,12 +24,11 @@ We are intentionally building the deterministic GitHub button flow first.
 
 For now:
 
-- Dashboard reads a morning brief on load.
 - User clicks the GitHub sync button.
-- Backend runs known GitHub sync capability.
-- Backend reads recent GitHub user activity.
-- Backend normalizes GitHub activity into work items.
-- Dashboard shows important work and recommended actions.
+- Backend runs known GitHub sync and attention capabilities.
+- Backend reads recent GitHub user activity and attention signals.
+- Backend normalizes GitHub activity and attention items.
+- Dashboard shows project-wise activity, new activity, and items that need attention.
 
 Later:
 
@@ -114,6 +113,7 @@ Current capabilities:
 | --- | --- | --- | --- | --- |
 | `morningBrief.read` | available | read | none | Return current morning brief. |
 | `github.sync` | available | read | none | Fetch recent GitHub activity and normalize work items. |
+| `github.attentionSync` | available | read | none | Fetch GitHub items that need attention. |
 | `workItem.markSeen` | planned | write | none | Mark a known work item as seen. |
 | `url.open` | planned | read | none | Open a known URL from a work item or action. |
 | `codex.draftTask` | planned | draft | none | Draft a Codex task without starting it. |
@@ -152,6 +152,7 @@ GET /api/morning-brief
 GET /api/capabilities
 GET /api/github/sync/latest
 POST /api/github/sync
+POST /api/github/attention/sync
 ```
 
 `GET /api/morning-brief` now executes the internal `morningBrief.read` capability. The response is mocked but typed.
@@ -159,6 +160,8 @@ POST /api/github/sync
 `GET /api/github/sync/latest` reads the latest persisted GitHub sync snapshot from local server storage.
 
 `POST /api/github/sync` executes the internal `github.sync` capability, persists the result, and returns a dashboard snapshot. The first version returns GitHub events for the authenticated GitHub user, filtered to the requested time window. Push events include normalized commit metadata so the dashboard and future orchestrator can show commit messages without re-reading raw GitHub payloads.
+
+`POST /api/github/attention/sync` executes the internal `github.attentionSync` capability. It fetches review requests, assigned open items, mentions, and failed workflow runs. If the request does not provide repositories, the route uses repositories from the latest persisted GitHub activity sync for workflow checks.
 
 Default request:
 
@@ -216,6 +219,9 @@ Main concepts:
 - `GitHubSyncResult`
 - `GitHubSyncStoreState`
 - `GitHubSyncSnapshot`
+- `GitHubAttentionInput`
+- `GitHubAttentionItem`
+- `GitHubAttentionResult`
 
 `GitHubActivity` is the normalized unit the app should pass around. It includes the repo/project, activity type, action label, title, summary, URL, timestamp, and provider metadata such as push branch, commit count, and commit messages.
 
@@ -225,6 +231,13 @@ Main concepts:
 last 24h = activity time filter
 new = activity ID not seen before the previous sync
 ```
+
+`GitHubAttentionItem` is the normalized unit for things that need action. Current kinds are:
+
+- `review_request`
+- `assigned`
+- `mention`
+- `failed_workflow`
 
 ## Local Storage
 
@@ -272,6 +285,8 @@ Current allowlisted commands:
 gh api user --jq .login
 gh api /users/{login}/events?per_page=100
 gh api /repos/{owner}/{repo}/compare/{before}...{head}
+gh api /search/issues?q={safe-query}&per_page=50
+gh api /repos/{owner}/{repo}/actions/runs?status=failure&per_page=20
 ```
 
 Future providers:
@@ -417,19 +432,21 @@ Done:
 - GitHub sync contract
 - read-only `GitHubProvider` using allowlisted `gh api` calls
 - `github.sync` routed through registry
+- `github.attentionSync` routed through registry
 - file-backed GitHub sync store at `apps/server/.data/github-sync.json`
 - `GET /api/github/sync/latest`
 - `POST /api/github/sync`
-- dashboard reads `GET /api/morning-brief`
+- `POST /api/github/attention/sync`
 - dashboard reads `GET /api/github/sync/latest`
 - dashboard button calls `POST /api/github/sync`
 - dashboard renders recent GitHub activity from the persisted sync snapshot, grouped by project and split into pushes, issues, pull requests, and other activity
 - dashboard shows new activity from `newActivityIds`
+- dashboard renders GitHub attention items from `github.attentionSync`
 
 Next:
 
 - decide local repo config format for PR/issue/workflow attention signals
-- merge PR/issue/workflow attention signals into the morning brief
+- merge attention signals into the future generated morning brief
 
 ## Maintenance Rule
 

@@ -4,6 +4,7 @@ import { Button, buttonVariants } from "@app-starter/ui/components/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@app-starter/ui/components/card";
 import { createFileRoute } from "@tanstack/react-router";
 import {
+  AtSign,
   CircleDot,
   ExternalLink,
   GitBranch,
@@ -12,17 +13,19 @@ import {
   MessageSquare,
   RefreshCw,
   Tag,
+  UserRound,
+  XCircle,
 } from "lucide-react";
 
 import {
   ApiError,
   getLatestGitHubSync,
-  getMorningBrief,
   syncGitHub,
+  syncGitHubAttention,
   type GitHubActivity,
+  type GitHubAttentionItem,
+  type GitHubAttentionResult,
   type GitHubSyncSnapshot,
-  type MorningBrief,
-  type RecommendedAction,
 } from "@/lib/api";
 
 export const Route = createFileRoute("/_auth/dashboard")({
@@ -51,6 +54,13 @@ const activitySectionLabels = {
 } as const;
 
 const activitySectionOrder = ["pushes", "issues", "pull_requests", "other"] as const;
+
+const attentionKindLabels: Record<GitHubAttentionItem["kind"], string> = {
+  review_request: "Review",
+  assigned: "Assigned",
+  mention: "Mention",
+  failed_workflow: "Workflow",
+};
 
 type ActivitySectionKey = (typeof activitySectionOrder)[number];
 
@@ -282,26 +292,13 @@ function apiErrorMessage(error: unknown, fallback: string) {
 }
 
 function DashboardPage() {
-  const [brief, setBrief] = useState<MorningBrief | null>(null);
-  const [briefLoading, setBriefLoading] = useState(true);
-  const [briefError, setBriefError] = useState<string | null>(null);
   const [syncSnapshot, setSyncSnapshot] = useState<GitHubSyncSnapshot | null>(null);
   const [syncSnapshotLoading, setSyncSnapshotLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
-
-  const loadBrief = useCallback(async () => {
-    setBriefLoading(true);
-    setBriefError(null);
-
-    try {
-      setBrief(await getMorningBrief());
-    } catch (error: unknown) {
-      setBriefError(apiErrorMessage(error, "Failed to load morning brief"));
-    } finally {
-      setBriefLoading(false);
-    }
-  }, []);
+  const [attentionResult, setAttentionResult] = useState<GitHubAttentionResult | null>(null);
+  const [attentionLoading, setAttentionLoading] = useState(true);
+  const [attentionError, setAttentionError] = useState<string | null>(null);
 
   const loadLatestGitHubSync = useCallback(async () => {
     setSyncSnapshotLoading(true);
@@ -316,10 +313,23 @@ function DashboardPage() {
     }
   }, []);
 
+  const loadGitHubAttention = useCallback(async () => {
+    setAttentionLoading(true);
+    setAttentionError(null);
+
+    try {
+      setAttentionResult(await syncGitHubAttention());
+    } catch (error: unknown) {
+      setAttentionError(apiErrorMessage(error, "Failed to sync GitHub attention"));
+    } finally {
+      setAttentionLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
-    void loadBrief();
     void loadLatestGitHubSync();
-  }, [loadBrief, loadLatestGitHubSync]);
+    void loadGitHubAttention();
+  }, [loadLatestGitHubSync, loadGitHubAttention]);
 
   const handleGitHubSync = useCallback(async () => {
     setSyncing(true);
@@ -327,12 +337,13 @@ function DashboardPage() {
 
     try {
       setSyncSnapshot(await syncGitHub());
+      void loadGitHubAttention();
     } catch (error: unknown) {
       setSyncError(apiErrorMessage(error, "Failed to sync GitHub activity"));
     } finally {
       setSyncing(false);
     }
-  }, []);
+  }, [loadGitHubAttention]);
 
   const syncResult = syncSnapshot?.lastSync ?? null;
   const newActivityIds = syncSnapshot?.newActivityIds ?? [];
@@ -345,7 +356,7 @@ function DashboardPage() {
 
     return new Set(syncResult.activities.map((activity) => activity.repo)).size;
   }, [syncResult]);
-  const recommendedCount = brief?.recommendedActions.length ?? 0;
+  const attentionCount = attentionResult?.items.length ?? 0;
   const syncWindow = useMemo(() => {
     if (!syncResult) {
       return null;
@@ -393,23 +404,27 @@ function DashboardPage() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Recommended</CardTitle>
+            <CardTitle className="text-base">Attention</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-semibold">{recommendedCount}</p>
-            <p className="text-sm text-muted-foreground">next actions</p>
+            <p className="text-3xl font-semibold">{attentionCount}</p>
+            <p className="text-sm text-muted-foreground">open items</p>
           </CardContent>
         </Card>
       </div>
 
-      {briefError ? (
-        <StatusPanel message={briefError} actionLabel="Retry" onAction={() => void loadBrief()} />
-      ) : null}
       {syncError ? (
         <StatusPanel
           message={syncError}
           actionLabel="Retry sync"
           onAction={() => void handleGitHubSync()}
+        />
+      ) : null}
+      {attentionError ? (
+        <StatusPanel
+          message={attentionError}
+          actionLabel="Retry attention"
+          onAction={() => void loadGitHubAttention()}
         />
       ) : null}
 
@@ -439,15 +454,15 @@ function DashboardPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Recommended actions</CardTitle>
+            <CardTitle>Needs attention</CardTitle>
           </CardHeader>
           <CardContent>
-            {briefLoading ? (
-              <LoadingState label="Loading recommendations..." />
-            ) : brief?.recommendedActions.length ? (
-              <RecommendedActionList actions={brief.recommendedActions} />
+            {attentionLoading ? (
+              <LoadingState label="Syncing attention..." />
+            ) : attentionResult?.items.length ? (
+              <AttentionList items={attentionResult.items} />
             ) : (
-              <EmptyState label="No recommendations right now." />
+              <EmptyState label="No GitHub attention items right now." />
             )}
           </CardContent>
         </Card>
@@ -684,18 +699,48 @@ function CommitList({ commits }: { commits: CommitMetadata[] }) {
   );
 }
 
-function RecommendedActionList({ actions }: { actions: RecommendedAction[] }) {
+function AttentionList({ items }: { items: GitHubAttentionItem[] }) {
   return (
     <ul className="flex flex-col divide-y">
-      {actions.map((action) => (
-        <li key={action.id} className="flex gap-3 py-3 first:pt-0 last:pb-0">
-          <GitBranch className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+      {items.map((item) => (
+        <li key={item.id} className="flex gap-3 py-3 first:pt-0 last:pb-0">
+          <AttentionIcon kind={item.kind} />
           <div className="min-w-0">
-            <p className="break-words text-sm font-medium">{action.label}</p>
-            <p className="break-words text-xs text-muted-foreground">{action.reason}</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="border px-2 py-0.5 text-[11px] text-muted-foreground">
+                {attentionKindLabels[item.kind]}
+              </span>
+              <span className="text-xs text-muted-foreground">{item.repo}</span>
+            </div>
+            <p className="mt-1 break-words text-sm font-medium">{item.title}</p>
+            <p className="break-words text-xs text-muted-foreground">{item.summary}</p>
           </div>
+          <a
+            className={buttonVariants({ variant: "ghost", size: "icon-xs" })}
+            href={item.url}
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Open attention item"
+          >
+            <ExternalLink />
+          </a>
         </li>
       ))}
     </ul>
   );
+}
+
+function AttentionIcon({ kind }: { kind: GitHubAttentionItem["kind"] }) {
+  const className = "mt-0.5 size-4 shrink-0 text-muted-foreground";
+
+  switch (kind) {
+    case "review_request":
+      return <GitPullRequest className={className} />;
+    case "assigned":
+      return <UserRound className={className} />;
+    case "mention":
+      return <AtSign className={className} />;
+    case "failed_workflow":
+      return <XCircle className={className} />;
+  }
 }

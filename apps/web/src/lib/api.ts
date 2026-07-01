@@ -5,6 +5,8 @@ import {
   deleteAccountInputSchema,
   exampleProjectListSchema,
   exampleProjectSchema,
+  githubAttentionInputSchema,
+  githubAttentionResultSchema,
   githubSyncInputSchema,
   githubSyncSnapshotSchema,
   meResponseSchema,
@@ -15,6 +17,9 @@ import {
   type DeleteAccountInput,
   type ExampleProject,
   type GitHubActivity,
+  type GitHubAttentionInput,
+  type GitHubAttentionItem,
+  type GitHubAttentionResult,
   type GitHubSyncInput,
   type GitHubSyncResult,
   type GitHubSyncSnapshot,
@@ -34,6 +39,9 @@ export type {
   DeleteAccountInput,
   ExampleProject,
   GitHubActivity,
+  GitHubAttentionInput,
+  GitHubAttentionItem,
+  GitHubAttentionResult,
   GitHubSyncInput,
   GitHubSyncResult,
   GitHubSyncSnapshot,
@@ -67,6 +75,14 @@ export function getLatestGitHubSync() {
 export function syncGitHub(input: Partial<GitHubSyncInput> = {}) {
   const body = githubSyncInputSchema.parse(input);
   return api.requestJson("/api/github/sync", githubSyncSnapshotSchema, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function syncGitHubAttention(input: Partial<GitHubAttentionInput> = {}) {
+  const body = githubAttentionInputSchema.parse(input);
+  return api.requestJson("/api/github/attention/sync", githubAttentionResultSchema, {
     method: "POST",
     body: JSON.stringify(body),
   });

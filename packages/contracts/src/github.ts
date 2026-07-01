@@ -9,6 +9,16 @@ export const githubSyncInputSchema = z
   })
   .strict();
 
+const githubRepositoryNameSchema = z
+  .string()
+  .regex(/^[A-Za-z0-9.-]+\/[A-Za-z0-9._-]+$/);
+
+export const githubAttentionInputSchema = z
+  .object({
+    repositories: z.array(githubRepositoryNameSchema).max(50).default([]),
+  })
+  .strict();
+
 export const githubActivityTypeSchema = z.enum([
   "push",
   "pull_request",
@@ -64,9 +74,43 @@ export const githubSyncSnapshotSchema = z
   })
   .strict();
 
+export const githubAttentionItemKindSchema = z.enum([
+  "review_request",
+  "assigned",
+  "mention",
+  "failed_workflow",
+]);
+
+export const githubAttentionItemSchema = z
+  .object({
+    id: z.string().min(1),
+    kind: githubAttentionItemKindSchema,
+    repo: githubRepositoryNameSchema,
+    title: z.string().min(1),
+    summary: z.string().min(1),
+    url: z.url(),
+    createdAt: z.iso.datetime(),
+    updatedAt: z.iso.datetime().optional(),
+    metadata: z.record(z.string(), z.unknown()),
+  })
+  .strict();
+
+export const githubAttentionResultSchema = z
+  .object({
+    syncedAt: z.iso.datetime(),
+    username: z.string().min(1),
+    repositories: z.array(githubRepositoryNameSchema),
+    items: z.array(githubAttentionItemSchema),
+  })
+  .strict();
+
 export type GitHubSyncInput = z.infer<typeof githubSyncInputSchema>;
+export type GitHubAttentionInput = z.infer<typeof githubAttentionInputSchema>;
 export type GitHubActivityType = z.infer<typeof githubActivityTypeSchema>;
 export type GitHubActivity = z.infer<typeof githubActivitySchema>;
 export type GitHubSyncResult = z.infer<typeof githubSyncResultSchema>;
 export type GitHubSyncStoreState = z.infer<typeof githubSyncStoreStateSchema>;
 export type GitHubSyncSnapshot = z.infer<typeof githubSyncSnapshotSchema>;
+export type GitHubAttentionItemKind = z.infer<typeof githubAttentionItemKindSchema>;
+export type GitHubAttentionItem = z.infer<typeof githubAttentionItemSchema>;
+export type GitHubAttentionResult = z.infer<typeof githubAttentionResultSchema>;

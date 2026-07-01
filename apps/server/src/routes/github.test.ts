@@ -52,6 +52,27 @@ const sampleResult: GitHubSyncResult = {
   recommendedActions: [],
 };
 
+const sampleAttentionResult = {
+  syncedAt: "2026-07-02T10:00:00.000Z",
+  username: "kabeer",
+  repositories: ["kabeer/kabeer-os"],
+  items: [
+    {
+      id: "github:attention:review_request:1",
+      kind: "review_request" as const,
+      repo: "kabeer/kabeer-os",
+      title: "Review dashboard PR",
+      summary: "Review requested on PR #12 in kabeer/kabeer-os.",
+      url: "https://github.com/kabeer/kabeer-os/pull/12",
+      createdAt: "2026-07-02T09:00:00.000Z",
+      updatedAt: "2026-07-02T09:30:00.000Z",
+      metadata: {
+        number: 12,
+      },
+    },
+  ],
+};
+
 function createMemoryStore(initialState?: Partial<GitHubSyncStoreState>): GitHubSyncStore {
   let state: GitHubSyncStoreState = {
     lastSync: null,
@@ -178,5 +199,52 @@ describe("github routes", () => {
 
     assert.equal(response.statusCode, 502);
     assert.deepEqual(response.json(), { error: "Failed to run GitHub CLI command." });
+  });
+
+  it("syncs GitHub attention through the capability registry with persisted repositories", async () => {
+    const app = Fastify();
+    app.register(registerGitHubRoutes, {
+      registry: {
+        executeCapability: async (name: CapabilityName, input: unknown) => {
+          assert.equal(name, "github.attentionSync");
+          assert.deepEqual(input, { repositories: ["kabeer/kabeer-os"] });
+          return sampleAttentionResult;
+        },
+      },
+      syncStore: createMemoryStore({
+        lastSync: sampleResult,
+        seenActivityIds: ["github:event:1"],
+        lastNewActivityIds: [],
+      }),
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/github/attention/sync",
+    });
+
+    assert.equal(response.statusCode, 200);
+    assert.deepEqual(response.json(), sampleAttentionResult);
+  });
+
+  it("accepts explicit repositories for GitHub attention sync", async () => {
+    const app = Fastify();
+    app.register(registerGitHubRoutes, {
+      registry: {
+        executeCapability: async (_name: CapabilityName, input: unknown) => {
+          assert.deepEqual(input, { repositories: ["kabeer/kabeer-os"] });
+          return sampleAttentionResult;
+        },
+      },
+      syncStore: createMemoryStore(),
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/github/attention/sync",
+      payload: { repositories: ["kabeer/kabeer-os"] },
+    });
+
+    assert.equal(response.statusCode, 200);
   });
 });

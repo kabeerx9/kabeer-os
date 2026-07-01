@@ -1,7 +1,10 @@
 import {
+  githubAttentionInputSchema,
+  githubAttentionResultSchema,
   githubSyncInputSchema,
   githubSyncResultSchema,
   githubSyncSnapshotSchema,
+  type GitHubSyncStoreState,
 } from "@app-starter/contracts/github";
 import type { FastifyInstance } from "fastify";
 
@@ -30,6 +33,14 @@ function invalidInputMessage(error: { issues: Array<{ message: string }> }): str
   return error.issues[0]?.message ?? "Invalid input";
 }
 
+function repositoriesFromState(state: GitHubSyncStoreState): string[] {
+  return [
+    ...new Set(
+      state.lastSync?.activities.map((activity) => activity.repo).filter((repo) => repo.length > 0) ?? [],
+    ),
+  ];
+}
+
 export async function registerGitHubRoutes(
   fastify: FastifyInstance,
   deps: Partial<GitHubRouteDeps> = {},
@@ -53,6 +64,31 @@ export async function registerGitHubRoutes(
       const syncResult = githubSyncResultSchema.parse(result);
       const state = await syncStore.saveSync(syncResult);
       return githubSyncSnapshotSchema.parse(snapshotFromGitHubSyncState(state));
+    } catch (error) {
+      if (error instanceof GitHubProviderError) {
+        return reply.code(502).send({ error: error.message });
+      }
+
+      throw error;
+    }
+  });
+
+  fastify.post("/api/github/attention/sync", async (request, reply) => {
+    const input = githubAttentionInputSchema.safeParse(request.body ?? {});
+
+    if (!input.success) {
+      return reply.code(400).send({ error: invalidInputMessage(input.error) });
+    }
+
+    try {
+      const state = await syncStore.getState();
+      const repositories = input.data.repositories.length
+        ? input.data.repositories
+        : repositoriesFromState(state);
+      const result = await registry.executeCapability("github.attentionSync", {
+        repositories,
+      });
+      return githubAttentionResultSchema.parse(result);
     } catch (error) {
       if (error instanceof GitHubProviderError) {
         return reply.code(502).send({ error: error.message });

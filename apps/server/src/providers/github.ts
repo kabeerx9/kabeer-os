@@ -2,9 +2,15 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
 import {
+  githubAttentionInputSchema,
+  githubAttentionResultSchema,
   githubSyncResultSchema,
   type GitHubActivity,
   type GitHubActivityType,
+  type GitHubAttentionInput,
+  type GitHubAttentionItem,
+  type GitHubAttentionItemKind,
+  type GitHubAttentionResult,
   type GitHubSyncInput,
   type GitHubSyncResult,
 } from "@app-starter/contracts/github";
@@ -13,6 +19,8 @@ import { z } from "zod";
 
 const execFileAsync = promisify(execFile);
 const hourInMs = 60 * 60 * 1000;
+const attentionWorkflowLookbackMs = 7 * 24 * hourInMs;
+const maxFailedWorkflowItemsPerRepo = 3;
 
 export type GhCommandRunner = {
   run: (args: readonly string[]) => Promise<string>;
@@ -20,6 +28,7 @@ export type GhCommandRunner = {
 
 export type GitHubProvider = {
   syncActivity: (input: GitHubSyncInput) => Promise<GitHubSyncResult>;
+  syncAttention: (input: GitHubAttentionInput) => Promise<GitHubAttentionResult>;
 };
 
 export type GitHubProviderOptions = {
@@ -79,6 +88,49 @@ const githubCompareSchema = z
   })
   .passthrough();
 
+const githubSearchIssueSchema = z
+  .object({
+    id: z.number(),
+    number: z.number(),
+    title: z.string(),
+    html_url: z.string(),
+    repository_url: z.string(),
+    created_at: z.iso.datetime(),
+    updated_at: z.iso.datetime(),
+    pull_request: z.record(z.string(), z.unknown()).optional(),
+  })
+  .passthrough();
+
+const githubSearchIssuesSchema = z
+  .object({
+    items: z.array(githubSearchIssueSchema).default([]),
+  })
+  .passthrough();
+
+const githubWorkflowRunSchema = z
+  .object({
+    id: z.number(),
+    name: z.string().nullable().optional(),
+    display_title: z.string().nullable().optional(),
+    html_url: z.string(),
+    status: z.string().nullable().optional(),
+    conclusion: z.string().nullable().optional(),
+    head_branch: z.string().nullable().optional(),
+    run_number: z.number().optional(),
+    created_at: z.iso.datetime(),
+    updated_at: z.iso.datetime(),
+  })
+  .passthrough();
+
+const githubWorkflowRunsSchema = z
+  .object({
+    workflow_runs: z.array(githubWorkflowRunSchema).default([]),
+  })
+  .passthrough();
+
+type GitHubSearchIssue = z.infer<typeof githubSearchIssueSchema>;
+type GitHubWorkflowRun = z.infer<typeof githubWorkflowRunSchema>;
+
 const defaultGhRunner: GhCommandRunner = {
   run: async (args) => {
     assertAllowedGhArgs(args);
@@ -113,7 +165,25 @@ function assertAllowedGhArgs(args: readonly string[]) {
       args[1] ?? "",
     );
 
-  if (!isUserLookup && !isUserEventsLookup && !isRepoCompareLookup) {
+  const isIssueSearchLookup =
+    args.length === 2 &&
+    args[0] === "api" &&
+    /^\/search\/issues\?q=[A-Za-z0-9%+._~:-]+&per_page=50$/.test(args[1] ?? "");
+
+  const isWorkflowFailureLookup =
+    args.length === 2 &&
+    args[0] === "api" &&
+    /^\/repos\/[A-Za-z0-9.-]+\/[A-Za-z0-9._-]+\/actions\/runs\?status=failure&per_page=20$/.test(
+      args[1] ?? "",
+    );
+
+  if (
+    !isUserLookup &&
+    !isUserEventsLookup &&
+    !isRepoCompareLookup &&
+    !isIssueSearchLookup &&
+    !isWorkflowFailureLookup
+  ) {
     throw new GitHubProviderError("Blocked non-allowlisted GitHub CLI command");
   }
 }
@@ -286,6 +356,122 @@ function pushCommitCount(payload: Record<string, unknown>, commits: PushCommit[]
   }
 
   return 0;
+}
+
+function parseJson(rawJson: string, errorMessage: string): unknown {
+  try {
+    return JSON.parse(rawJson);
+  } catch (error) {
+    throw new GitHubProviderError(errorMessage, { cause: error });
+  }
+}
+
+function searchIssuesPath(query: string): string {
+  const params = new URLSearchParams({
+    q: query,
+    per_page: "50",
+  });
+
+  return `/search/issues?${params.toString()}`;
+}
+
+function workflowFailuresPath(repo: string): string {
+  return `/repos/${repo}/actions/runs?status=failure&per_page=20`;
+}
+
+function repoFromRepositoryUrl(repositoryUrl: string): string | undefined {
+  const marker = "/repos/";
+  const markerIndex = repositoryUrl.lastIndexOf(marker);
+
+  if (markerIndex === -1) {
+    return undefined;
+  }
+
+  const repo = repositoryUrl.slice(markerIndex + marker.length);
+  return /^[A-Za-z0-9.-]+\/[A-Za-z0-9._-]+$/.test(repo) ? repo : undefined;
+}
+
+function isPullRequestSearchItem(item: GitHubSearchIssue): boolean {
+  return item.pull_request !== undefined;
+}
+
+function attentionSummary(kind: GitHubAttentionItemKind, item: GitHubSearchIssue, repo: string): string {
+  const subject = isPullRequestSearchItem(item) ? "PR" : "issue";
+
+  switch (kind) {
+    case "review_request":
+      return `Review requested on PR #${item.number} in ${repo}.`;
+    case "assigned":
+      return `Assigned open ${subject} #${item.number} in ${repo}.`;
+    case "mention":
+      return `Mentioned in open ${subject} #${item.number} in ${repo}.`;
+    case "failed_workflow":
+      return `Failed workflow in ${repo}.`;
+  }
+}
+
+function attentionItemFromSearchItem(
+  kind: Exclude<GitHubAttentionItemKind, "failed_workflow">,
+  item: GitHubSearchIssue,
+): GitHubAttentionItem[] {
+  const repo = repoFromRepositoryUrl(item.repository_url);
+
+  if (!repo) {
+    return [];
+  }
+
+  return [
+    {
+      id: `github:attention:${kind}:${item.id}`,
+      kind,
+      repo,
+      title: item.title,
+      summary: attentionSummary(kind, item, repo),
+      url: item.html_url,
+      createdAt: item.created_at,
+      updatedAt: item.updated_at,
+      metadata: {
+        number: item.number,
+        subjectType: isPullRequestSearchItem(item) ? "pull_request" : "issue",
+      },
+    },
+  ];
+}
+
+function attentionItemFromWorkflowRun(repo: string, run: GitHubWorkflowRun): GitHubAttentionItem {
+  const workflowName = run.name ?? "workflow";
+  const title = run.display_title ?? `${workflowName} failed`;
+  const branch = run.head_branch ?? "unknown branch";
+
+  return {
+    id: `github:attention:failed_workflow:${repo}:${run.id}`,
+    kind: "failed_workflow",
+    repo,
+    title,
+    summary: `${workflowName} failed on ${branch}.`,
+    url: run.html_url,
+    createdAt: run.created_at,
+    updatedAt: run.updated_at,
+    metadata: {
+      workflowName,
+      branch,
+      status: run.status,
+      conclusion: run.conclusion,
+      runNumber: run.run_number,
+    },
+  };
+}
+
+function dedupeAttentionItems(items: GitHubAttentionItem[]): GitHubAttentionItem[] {
+  const itemsByUrl = new Map<string, GitHubAttentionItem>();
+
+  for (const item of items) {
+    if (!itemsByUrl.has(item.url)) {
+      itemsByUrl.set(item.url, item);
+    }
+  }
+
+  return [...itemsByUrl.values()];
 }
 
 function eventType(type: string): GitHubActivityType {
@@ -476,6 +662,41 @@ function workItemFromActivity(activity: GitHubActivity): WorkItem {
   };
 }
 
+async function searchAttentionItems(
+  runner: GhCommandRunner,
+  kind: Exclude<GitHubAttentionItemKind, "failed_workflow">,
+  query: string,
+): Promise<GitHubAttentionItem[]> {
+  const rawSearch = await runner.run(["api", searchIssuesPath(query)]);
+  const parsedSearch = parseJson(rawSearch, "GitHub CLI returned invalid attention search data.");
+  const searchResult = githubSearchIssuesSchema.parse(parsedSearch);
+  return searchResult.items.flatMap((item) => attentionItemFromSearchItem(kind, item));
+}
+
+async function failedWorkflowItemsForRepo(
+  runner: GhCommandRunner,
+  repo: string,
+  now: Date,
+): Promise<GitHubAttentionItem[]> {
+  let rawRuns: string;
+
+  try {
+    rawRuns = await runner.run(["api", workflowFailuresPath(repo)]);
+  } catch {
+    return [];
+  }
+
+  const parsedRuns = parseJson(rawRuns, "GitHub CLI returned invalid workflow run data.");
+  const runs = githubWorkflowRunsSchema.parse(parsedRuns);
+  const workflowSince = now.getTime() - attentionWorkflowLookbackMs;
+
+  return runs.workflow_runs
+    .filter((run) => run.conclusion === undefined || run.conclusion === null || run.conclusion === "failure")
+    .filter((run) => new Date(run.created_at).getTime() >= workflowSince)
+    .slice(0, maxFailedWorkflowItemsPerRepo)
+    .map((run) => attentionItemFromWorkflowRun(repo, run));
+}
+
 export function createGhGitHubProvider(options: GitHubProviderOptions = {}): GitHubProvider {
   const runner = options.runner ?? defaultGhRunner;
   const nowFn = options.now ?? (() => new Date());
@@ -506,6 +727,35 @@ export function createGhGitHubProvider(options: GitHubProviderOptions = {}): Git
         activities,
         workItems: activities.map(workItemFromActivity),
         recommendedActions: [],
+      });
+    },
+
+    async syncAttention(input) {
+      const now = nowFn();
+      const parsedInput = githubAttentionInputSchema.parse(input);
+      const username = githubUserSchema.parse((await runner.run(["api", "user", "--jq", ".login"])).trim());
+      const repositories = [...new Set(parsedInput.repositories)];
+      const [reviewItems, assignedItems, mentionItems, ...workflowItemGroups] = await Promise.all([
+        searchAttentionItems(
+          runner,
+          "review_request",
+          `is:pr state:open review-requested:${username} archived:false`,
+        ),
+        searchAttentionItems(runner, "assigned", `state:open assignee:${username} archived:false`),
+        searchAttentionItems(runner, "mention", `state:open mentions:${username} archived:false`),
+        ...repositories.map((repo) => failedWorkflowItemsForRepo(runner, repo, now)),
+      ]);
+
+      return githubAttentionResultSchema.parse({
+        syncedAt: toIsoDate(now),
+        username,
+        repositories,
+        items: dedupeAttentionItems([
+          ...reviewItems,
+          ...assignedItems,
+          ...mentionItems,
+          ...workflowItemGroups.flat(),
+        ]),
       });
     },
   };
