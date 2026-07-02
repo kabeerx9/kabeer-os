@@ -9,13 +9,76 @@ export const githubSyncInputSchema = z
   })
   .strict();
 
-const githubRepositoryNameSchema = z
+export const githubRepositoryNameSchema = z
   .string()
   .regex(/^[A-Za-z0-9.-]+\/[A-Za-z0-9._-]+$/);
+
+const githubAssigneeSchema = z
+  .string()
+  .regex(/^(?:me|[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?)$/);
 
 export const githubAttentionInputSchema = z
   .object({
     repositories: z.array(githubRepositoryNameSchema).max(50).default([]),
+  })
+  .strict();
+
+export const githubRepositorySearchInputSchema = z
+  .object({
+    query: z.string().trim().min(1).max(120),
+    limit: z.number().int().min(1).max(20).default(10),
+  })
+  .strict();
+
+export const githubRepositorySchema = z
+  .object({
+    name: githubRepositoryNameSchema,
+    description: z.string().nullable().optional(),
+    url: z.url(),
+    private: z.boolean(),
+    updatedAt: z.iso.datetime().optional(),
+  })
+  .strict();
+
+export const githubRepositorySearchResultSchema = z
+  .object({
+    searchedAt: z.iso.datetime(),
+    query: z.string().min(1),
+    repositories: z.array(githubRepositorySchema),
+  })
+  .strict();
+
+export const githubIssueSearchInputSchema = z
+  .object({
+    repository: githubRepositoryNameSchema,
+    assignee: githubAssigneeSchema.default("me"),
+    state: z.enum(["open", "closed", "all"]).default("open"),
+    query: z.string().trim().min(1).max(120).optional(),
+    limit: z.number().int().min(1).max(50).default(20),
+  })
+  .strict();
+
+export const githubIssueSearchItemSchema = z
+  .object({
+    id: z.string().min(1),
+    repo: githubRepositoryNameSchema,
+    number: z.number().int().min(1),
+    title: z.string().min(1),
+    state: z.enum(["open", "closed"]),
+    url: z.url(),
+    createdAt: z.iso.datetime(),
+    updatedAt: z.iso.datetime(),
+    author: z.string().min(1).optional(),
+    labels: z.array(z.string().min(1)),
+    metadata: z.record(z.string(), z.unknown()),
+  })
+  .strict();
+
+export const githubIssueSearchResultSchema = z
+  .object({
+    searchedAt: z.iso.datetime(),
+    repository: githubRepositoryNameSchema,
+    issues: z.array(githubIssueSearchItemSchema),
   })
   .strict();
 
@@ -170,6 +233,12 @@ export const githubDailySummaryResultSchema = z
 
 export type GitHubSyncInput = z.infer<typeof githubSyncInputSchema>;
 export type GitHubAttentionInput = z.infer<typeof githubAttentionInputSchema>;
+export type GitHubRepositorySearchInput = z.infer<typeof githubRepositorySearchInputSchema>;
+export type GitHubRepository = z.infer<typeof githubRepositorySchema>;
+export type GitHubRepositorySearchResult = z.infer<typeof githubRepositorySearchResultSchema>;
+export type GitHubIssueSearchInput = z.infer<typeof githubIssueSearchInputSchema>;
+export type GitHubIssueSearchItem = z.infer<typeof githubIssueSearchItemSchema>;
+export type GitHubIssueSearchResult = z.infer<typeof githubIssueSearchResultSchema>;
 export type GitHubDailySummaryInput = z.infer<typeof githubDailySummaryInputSchema>;
 export type GitHubDailySummaryCounts = z.infer<typeof githubDailySummaryCountsSchema>;
 export type GitHubDailySummaryProject = z.infer<typeof githubDailySummaryProjectSchema>;

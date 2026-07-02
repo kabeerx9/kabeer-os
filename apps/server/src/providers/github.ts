@@ -4,6 +4,10 @@ import { promisify } from "node:util";
 import {
   githubAttentionInputSchema,
   githubAttentionResultSchema,
+  githubIssueSearchInputSchema,
+  githubIssueSearchResultSchema,
+  githubRepositorySearchInputSchema,
+  githubRepositorySearchResultSchema,
   githubSyncResultSchema,
   type GitHubActivity,
   type GitHubActivityType,
@@ -11,6 +15,10 @@ import {
   type GitHubAttentionItem,
   type GitHubAttentionItemKind,
   type GitHubAttentionResult,
+  type GitHubIssueSearchInput,
+  type GitHubIssueSearchResult,
+  type GitHubRepositorySearchInput,
+  type GitHubRepositorySearchResult,
   type GitHubSyncInput,
   type GitHubSyncResult,
 } from "@app-starter/contracts/github";
@@ -29,6 +37,8 @@ export type GhCommandRunner = {
 export type GitHubProvider = {
   syncActivity: (input: GitHubSyncInput) => Promise<GitHubSyncResult>;
   syncAttention: (input: GitHubAttentionInput) => Promise<GitHubAttentionResult>;
+  searchRepositories: (input: GitHubRepositorySearchInput) => Promise<GitHubRepositorySearchResult>;
+  searchIssues: (input: GitHubIssueSearchInput) => Promise<GitHubIssueSearchResult>;
 };
 
 export type GitHubProviderOptions = {
@@ -93,10 +103,27 @@ const githubSearchIssueSchema = z
     id: z.number(),
     number: z.number(),
     title: z.string(),
+    state: z.enum(["open", "closed"]).default("open"),
     html_url: z.string(),
     repository_url: z.string(),
     created_at: z.iso.datetime(),
     updated_at: z.iso.datetime(),
+    user: z
+      .object({
+        login: z.string().optional(),
+      })
+      .passthrough()
+      .nullable()
+      .optional(),
+    labels: z
+      .array(
+        z
+          .object({
+            name: z.string().optional(),
+          })
+          .passthrough(),
+      )
+      .default([]),
     pull_request: z.record(z.string(), z.unknown()).optional(),
   })
   .passthrough();
@@ -104,6 +131,22 @@ const githubSearchIssueSchema = z
 const githubSearchIssuesSchema = z
   .object({
     items: z.array(githubSearchIssueSchema).default([]),
+  })
+  .passthrough();
+
+const githubSearchRepositorySchema = z
+  .object({
+    full_name: z.string(),
+    description: z.string().nullable().optional(),
+    html_url: z.string(),
+    private: z.boolean(),
+    updated_at: z.iso.datetime().optional(),
+  })
+  .passthrough();
+
+const githubSearchRepositoriesSchema = z
+  .object({
+    items: z.array(githubSearchRepositorySchema).default([]),
   })
   .passthrough();
 
@@ -129,6 +172,7 @@ const githubWorkflowRunsSchema = z
   .passthrough();
 
 type GitHubSearchIssue = z.infer<typeof githubSearchIssueSchema>;
+type GitHubSearchRepository = z.infer<typeof githubSearchRepositorySchema>;
 type GitHubWorkflowRun = z.infer<typeof githubWorkflowRunSchema>;
 
 const defaultGhRunner: GhCommandRunner = {
@@ -168,7 +212,16 @@ function assertAllowedGhArgs(args: readonly string[]) {
   const isIssueSearchLookup =
     args.length === 2 &&
     args[0] === "api" &&
-    /^\/search\/issues\?q=[A-Za-z0-9%+._~:-]+&per_page=50$/.test(args[1] ?? "");
+    /^\/search\/issues\?q=[A-Za-z0-9%+._~:-]+&per_page=(?:[1-9]|[1-4][0-9]|50)$/.test(
+      args[1] ?? "",
+    );
+
+  const isRepositorySearchLookup =
+    args.length === 2 &&
+    args[0] === "api" &&
+    /^\/search\/repositories\?q=[A-Za-z0-9%+._~:-]+&per_page=(?:[1-9]|1[0-9]|20)$/.test(
+      args[1] ?? "",
+    );
 
   const isWorkflowFailureLookup =
     args.length === 2 &&
@@ -182,6 +235,7 @@ function assertAllowedGhArgs(args: readonly string[]) {
     !isUserEventsLookup &&
     !isRepoCompareLookup &&
     !isIssueSearchLookup &&
+    !isRepositorySearchLookup &&
     !isWorkflowFailureLookup
   ) {
     throw new GitHubProviderError("Blocked non-allowlisted GitHub CLI command");
@@ -366,13 +420,22 @@ function parseJson(rawJson: string, errorMessage: string): unknown {
   }
 }
 
-function searchIssuesPath(query: string): string {
+function searchIssuesPath(query: string, limit = 50): string {
   const params = new URLSearchParams({
     q: query,
-    per_page: "50",
+    per_page: String(limit),
   });
 
   return `/search/issues?${params.toString()}`;
+}
+
+function searchRepositoriesPath(query: string, limit: number): string {
+  const params = new URLSearchParams({
+    q: `${query} in:name`,
+    per_page: String(limit),
+  });
+
+  return `/search/repositories?${params.toString()}`;
 }
 
 function workflowFailuresPath(repo: string): string {
@@ -393,6 +456,37 @@ function repoFromRepositoryUrl(repositoryUrl: string): string | undefined {
 
 function isPullRequestSearchItem(item: GitHubSearchIssue): boolean {
   return item.pull_request !== undefined;
+}
+
+function repositorySearchItem(item: GitHubSearchRepository) {
+  return {
+    name: item.full_name,
+    ...(item.description !== undefined ? { description: item.description } : {}),
+    url: item.html_url,
+    private: item.private,
+    ...(item.updated_at ? { updatedAt: item.updated_at } : {}),
+  };
+}
+
+function issueSearchItem(repo: string, item: GitHubSearchIssue) {
+  const resolvedRepo = repoFromRepositoryUrl(item.repository_url) ?? repo;
+  const author = item.user?.login;
+
+  return {
+    id: `github:issue:${item.id}`,
+    repo: resolvedRepo,
+    number: item.number,
+    title: item.title,
+    state: item.state,
+    url: item.html_url,
+    createdAt: item.created_at,
+    updatedAt: item.updated_at,
+    ...(author ? { author } : {}),
+    labels: item.labels.flatMap((label) => (label.name ? [label.name] : [])),
+    metadata: {
+      subjectType: isPullRequestSearchItem(item) ? "pull_request" : "issue",
+    },
+  };
 }
 
 function attentionSummary(kind: GitHubAttentionItemKind, item: GitHubSearchIssue, repo: string): string {
@@ -756,6 +850,58 @@ export function createGhGitHubProvider(options: GitHubProviderOptions = {}): Git
           ...mentionItems,
           ...workflowItemGroups.flat(),
         ]),
+      });
+    },
+
+    async searchRepositories(input) {
+      const now = nowFn();
+      const parsedInput = githubRepositorySearchInputSchema.parse(input);
+      const rawSearch = await runner.run([
+        "api",
+        searchRepositoriesPath(parsedInput.query, parsedInput.limit),
+      ]);
+      const parsedSearch = parseJson(rawSearch, "GitHub CLI returned invalid repository search data.");
+      const searchResult = githubSearchRepositoriesSchema.parse(parsedSearch);
+
+      return githubRepositorySearchResultSchema.parse({
+        searchedAt: toIsoDate(now),
+        query: parsedInput.query,
+        repositories: searchResult.items.map(repositorySearchItem),
+      });
+    },
+
+    async searchIssues(input) {
+      const now = nowFn();
+      const parsedInput = githubIssueSearchInputSchema.parse(input);
+      const assignee =
+        parsedInput.assignee === "me"
+          ? githubUserSchema.parse((await runner.run(["api", "user", "--jq", ".login"])).trim())
+          : parsedInput.assignee;
+      const queryParts = [
+        `repo:${parsedInput.repository}`,
+        "is:issue",
+        `assignee:${assignee}`,
+      ];
+
+      if (parsedInput.state !== "all") {
+        queryParts.push(`state:${parsedInput.state}`);
+      }
+
+      if (parsedInput.query) {
+        queryParts.push(parsedInput.query);
+      }
+
+      const rawSearch = await runner.run([
+        "api",
+        searchIssuesPath(queryParts.join(" "), parsedInput.limit),
+      ]);
+      const parsedSearch = parseJson(rawSearch, "GitHub CLI returned invalid issue search data.");
+      const searchResult = githubSearchIssuesSchema.parse(parsedSearch);
+
+      return githubIssueSearchResultSchema.parse({
+        searchedAt: toIsoDate(now),
+        repository: parsedInput.repository,
+        issues: searchResult.items.map((item) => issueSearchItem(parsedInput.repository, item)),
       });
     },
   };

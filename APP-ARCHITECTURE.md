@@ -1,6 +1,6 @@
 # Kabeer OS App Architecture
 
-Last updated: 2026-07-02
+Last updated: 2026-07-03
 
 This is the catch-up file for returning to the project after time away.
 
@@ -13,7 +13,7 @@ Kabeer OS is a local personal operator for getting from laptop open to meaningfu
 The first useful loop is:
 
 ```text
-GitHub activity/attention signal -> deterministic summary -> dashboard -> future action -> approved worker
+GitHub activity/attention signal -> deterministic summary -> dashboard/chat -> future action -> approved worker
 ```
 
 The product is not an LLM chat app and not a Codex wrapper. The LLM layer will come later as an intent router and summarizer. It should never directly execute commands or bypass approval policy.
@@ -30,6 +30,7 @@ For now:
 - Backend normalizes GitHub activity and attention items.
 - Backend generates a deterministic daily summary from normalized GitHub data.
 - Dashboard shows the summary, project-wise activity, new activity, and items that need attention.
+- Dashboard chat can ask the assistant GitHub questions through read-only capabilities.
 
 Later:
 
@@ -115,6 +116,8 @@ Current capabilities:
 | `morningBrief.read` | available | read | none | Return current morning brief. |
 | `github.sync` | available | read | none | Fetch recent GitHub activity and normalize work items. |
 | `github.attentionSync` | available | read | none | Fetch GitHub items that need attention. |
+| `github.searchRepositories` | available | read | none | Search readable GitHub repositories by name. |
+| `github.searchIssues` | available | read | none | Search assigned issues in a specific repository. |
 | `github.dailySummary.generate` | available | read | none | Generate a deterministic daily summary from normalized GitHub data. |
 | `workItem.markSeen` | planned | write | none | Mark a known work item as seen. |
 | `url.open` | planned | read | none | Open a known URL from a work item or action. |
@@ -153,6 +156,7 @@ Implemented:
 GET /api/morning-brief
 GET /api/capabilities
 GET /api/github/sync/latest
+POST /api/assistant/chat
 POST /api/github/sync
 POST /api/github/attention/sync
 POST /api/github/daily-summary
@@ -167,6 +171,17 @@ POST /api/github/daily-summary
 `POST /api/github/attention/sync` executes the internal `github.attentionSync` capability. It fetches review requests, assigned open items, mentions, and failed workflow runs. If the request does not provide repositories, the route uses repositories from the latest persisted GitHub activity sync for workflow checks.
 
 `POST /api/github/daily-summary` executes the internal `github.dailySummary.generate` capability. It does not call GitHub. It accepts the already-normalized sync snapshot and attention result, counts/ranks facts deterministically, and returns a typed headline, paragraph, project summaries, and attention counts.
+
+`POST /api/assistant/chat` runs the generic assistant loop. The current runtime model provider is OpenRouter behind `ModelProvider`. The assistant can only call allowlisted capabilities through the registry; it cannot run shell commands directly.
+
+Current assistant model config:
+
+```text
+MODEL_PROVIDER=openrouter
+OPENROUTER_MODEL=openai/gpt-4.1-mini
+```
+
+`openai/gpt-4.1-mini` is the default for now because the assistant loop needs cheap, fast, structured-output-capable tool routing more than frontier reasoning. The provider boundary stays generic: changing model vendors should mean changing env/config or adding another `ModelProvider`, not rewriting the assistant loop.
 
 Default request:
 
@@ -211,6 +226,21 @@ Main concepts:
 - availability status
 - input/output schema names
 
+Assistant chat contracts:
+
+```text
+packages/contracts/src/assistant.ts
+```
+
+Main concepts:
+
+- `AssistantMessage`
+- `AssistantDecision`
+- `AssistantObservation`
+- `AssistantStep`
+- `AssistantChatInput`
+- `AssistantChatResult`
+
 GitHub sync contracts:
 
 ```text
@@ -227,6 +257,10 @@ Main concepts:
 - `GitHubAttentionInput`
 - `GitHubAttentionItem`
 - `GitHubAttentionResult`
+- `GitHubRepositorySearchInput`
+- `GitHubRepositorySearchResult`
+- `GitHubIssueSearchInput`
+- `GitHubIssueSearchResult`
 - `GitHubDailySummaryInput`
 - `GitHubDailySummaryResult`
 
@@ -294,7 +328,8 @@ Current allowlisted commands:
 gh api user --jq .login
 gh api /users/{login}/events?per_page=100
 gh api /repos/{owner}/{repo}/compare/{before}...{head}
-gh api /search/issues?q={safe-query}&per_page=50
+gh api /search/repositories?q={safe-query}&per_page={1-20}
+gh api /search/issues?q={safe-query}&per_page={1-50}
 gh api /repos/{owner}/{repo}/actions/runs?status=failure&per_page=20
 ```
 
@@ -329,6 +364,38 @@ apps/server/src/services/github-daily-summary.ts
 
 It is deliberately not a provider because it does not fetch external data. It compiles already-normalized GitHub facts into stable summary text.
 
+Implemented model provider boundary:
+
+```text
+apps/server/src/providers/model.ts
+apps/server/src/providers/openrouter-model.ts
+```
+
+`ModelProvider` is the generic interface. `OpenRouterModelProvider` is the first runtime implementation. The assistant orchestrator depends on `ModelProvider`, not OpenRouter directly.
+
+Current default model:
+
+```text
+openai/gpt-4.1-mini via OpenRouter
+```
+
+Important model-provider details:
+
+- OpenRouter is only the transport/provider today.
+- The underlying model is currently an OpenAI model.
+- The app requests structured JSON decisions with `response_format`.
+- The app validates the model response with Zod before executing anything.
+- The model never receives raw shell access.
+
+Implemented assistant loop:
+
+```text
+apps/server/src/services/assistant-orchestrator.ts
+apps/server/src/routes/assistant.ts
+```
+
+The assistant loop asks the model for one structured decision at a time, validates it, executes allowed capabilities through the registry, adds observations, and continues until it can respond, ask the user, stop, or hit the step limit.
+
 ## GitHub Sync Plan
 
 Recommended first version:
@@ -354,6 +421,13 @@ Current attention version:
 3. Search open mentions.
 4. Fetch recent failed workflow runs for repos discovered from recent activity.
 5. Show those signals separately from the last-24-hour activity feed.
+
+Current assistant GitHub search version:
+
+1. Search repositories by user-provided name fragment.
+2. Search open/closed/all issues in a specific repository.
+3. Resolve `assignee: "me"` through the authenticated GitHub user.
+4. Return normalized issue results to the assistant loop.
 
 ## Storage Plan
 
@@ -418,12 +492,17 @@ packages/contracts/src/morning-brief.ts
 apps/server/src/capabilities/registry.ts
 apps/server/src/routes/capabilities.ts
 apps/server/src/routes/github.ts
+apps/server/src/routes/assistant.ts
 apps/server/src/routes/morning-brief.ts
 apps/server/src/providers/github.ts
+apps/server/src/providers/model.ts
+apps/server/src/providers/openrouter-model.ts
+apps/server/src/services/assistant-orchestrator.ts
 apps/server/src/stores/github-sync-store.ts
 apps/server/src/services/morning-brief.ts
 apps/web/src/routes/_auth/dashboard.tsx
 apps/web/src/lib/api.ts
+packages/ui/src/components/message-scroller.tsx
 ```
 
 ## Current Status
@@ -436,10 +515,16 @@ Done:
 - server capability registry
 - `GET /api/capabilities`
 - `morningBrief.read` routed through registry
+- assistant chat contract
+- generic `ModelProvider` interface
+- `OpenRouterModelProvider`
+- assistant orchestrator with bounded capability loop
 - GitHub sync contract
 - read-only `GitHubProvider` using allowlisted `gh api` calls
 - `github.sync` routed through registry
 - `github.attentionSync` routed through registry
+- `github.searchRepositories` routed through registry
+- `github.searchIssues` routed through registry
 - `github.dailySummary.generate` routed through registry
 - deterministic GitHub daily summary service
 - file-backed GitHub sync store at `apps/server/.data/github-sync.json`
@@ -447,6 +532,8 @@ Done:
 - `POST /api/github/sync`
 - `POST /api/github/attention/sync`
 - `POST /api/github/daily-summary`
+- `POST /api/assistant/chat`
+- dashboard chat panel using shadcn `MessageScroller`
 - dashboard reads `GET /api/github/sync/latest`
 - dashboard button calls `POST /api/github/sync`
 - dashboard renders deterministic daily summary from GitHub activity and attention data
@@ -456,8 +543,9 @@ Done:
 
 Next:
 
-- decide the first Codex task draft shape
-- add approval-first Codex task drafting from a selected GitHub item
+- manually test dashboard chat with a real `OPENROUTER_API_KEY`
+- harden model provider timeouts/retries and error messages
+- add next GitHub read tools if needed, such as PR search or issue detail fetch
 
 ## Maintenance Rule
 

@@ -4,6 +4,8 @@ export const capabilityNameSchema = z.enum([
   "morningBrief.read",
   "github.sync",
   "github.attentionSync",
+  "github.searchRepositories",
+  "github.searchIssues",
   "github.dailySummary.generate",
   "workItem.markSeen",
   "url.open",

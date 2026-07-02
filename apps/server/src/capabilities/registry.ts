@@ -12,6 +12,10 @@ import {
   githubAttentionResultSchema,
   githubDailySummaryInputSchema,
   githubDailySummaryResultSchema,
+  githubIssueSearchInputSchema,
+  githubIssueSearchResultSchema,
+  githubRepositorySearchInputSchema,
+  githubRepositorySearchResultSchema,
   githubSyncInputSchema,
   githubSyncResultSchema,
 } from "@app-starter/contracts/github";
@@ -122,6 +126,34 @@ const capabilityDefinitions: CapabilityDefinition[] = [
     tags: ["github", "attention", "read"],
     execute: async (input, context) =>
       context.githubProvider.syncAttention(githubAttentionInputSchema.parse(input)),
+  },
+  {
+    name: "github.searchRepositories",
+    description: "Search readable GitHub repositories by name so follow-up calls can target the right repo.",
+    risk: "read",
+    approval: "none",
+    status: "available",
+    inputSchemaName: "githubRepositorySearchInput",
+    outputSchemaName: "githubRepositorySearchResult",
+    inputSchema: githubRepositorySearchInputSchema,
+    outputSchema: githubRepositorySearchResultSchema,
+    tags: ["github", "repositories", "search", "read"],
+    execute: async (input, context) =>
+      context.githubProvider.searchRepositories(githubRepositorySearchInputSchema.parse(input)),
+  },
+  {
+    name: "github.searchIssues",
+    description: "Search assigned GitHub issues in a specific repository.",
+    risk: "read",
+    approval: "none",
+    status: "available",
+    inputSchemaName: "githubIssueSearchInput",
+    outputSchemaName: "githubIssueSearchResult",
+    inputSchema: githubIssueSearchInputSchema,
+    outputSchema: githubIssueSearchResultSchema,
+    tags: ["github", "issues", "search", "read"],
+    execute: async (input, context) =>
+      context.githubProvider.searchIssues(githubIssueSearchInputSchema.parse(input)),
   },
   {
     name: "github.dailySummary.generate",

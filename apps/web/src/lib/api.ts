@@ -1,5 +1,7 @@
 import {
   ApiError,
+  assistantChatInputSchema,
+  assistantChatResultSchema,
   createApiClient,
   createExampleProjectInputSchema,
   deleteAccountInputSchema,
@@ -15,6 +17,10 @@ import {
   morningBriefSchema,
   updateAccountInputSchema,
   updateExampleProjectInputSchema,
+  type AssistantChatInput,
+  type AssistantChatResult,
+  type AssistantMessage,
+  type AssistantStep,
   type CreateExampleProjectInput,
   type DeleteAccountInput,
   type ExampleProject,
@@ -39,6 +45,10 @@ import { env } from "@app-starter/env/web";
 import { getClerkAuthToken } from "@/utils/clerk-auth";
 
 export type {
+  AssistantChatInput,
+  AssistantChatResult,
+  AssistantMessage,
+  AssistantStep,
   CreateExampleProjectInput,
   DeleteAccountInput,
   ExampleProject,
@@ -72,6 +82,14 @@ export function getMe() {
 
 export function getMorningBrief() {
   return api.requestJson("/api/morning-brief", morningBriefSchema);
+}
+
+export function sendAssistantMessage(input: AssistantChatInput) {
+  const body = assistantChatInputSchema.parse(input);
+  return api.requestJson("/api/assistant/chat", assistantChatResultSchema, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
 }
 
 export function getLatestGitHubSync() {

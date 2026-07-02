@@ -280,6 +280,115 @@ describe("createGhGitHubProvider", () => {
     assert.equal(result.items[2]?.summary, "CI failed on main.");
   });
 
+  it("searches repositories by name", async () => {
+    const provider = createGhGitHubProvider({
+      now: () => new Date("2026-07-02T10:00:00.000Z"),
+      runner: createRunner(
+        new Map([
+          [
+            JSON.stringify(["api", "/search/repositories?q=kabeer-os+in%3Aname&per_page=5"]),
+            JSON.stringify({
+              items: [
+                {
+                  full_name: "kabeer/kabeer-os",
+                  description: "Personal OS",
+                  html_url: "https://github.com/kabeer/kabeer-os",
+                  private: true,
+                  updated_at: "2026-07-02T09:00:00.000Z",
+                },
+              ],
+            }),
+          ],
+        ]),
+      ),
+    });
+
+    const result = await provider.searchRepositories({ query: "kabeer-os", limit: 5 });
+
+    assert.deepEqual(result, {
+      searchedAt: "2026-07-02T10:00:00.000Z",
+      query: "kabeer-os",
+      repositories: [
+        {
+          name: "kabeer/kabeer-os",
+          description: "Personal OS",
+          url: "https://github.com/kabeer/kabeer-os",
+          private: true,
+          updatedAt: "2026-07-02T09:00:00.000Z",
+        },
+      ],
+    });
+  });
+
+  it("searches assigned issues in a repository", async () => {
+    const provider = createGhGitHubProvider({
+      now: () => new Date("2026-07-02T10:00:00.000Z"),
+      runner: createRunner(
+        new Map([
+          [JSON.stringify(["api", "user", "--jq", ".login"]), "kabeer\n"],
+          [
+            JSON.stringify([
+              "api",
+              "/search/issues?q=repo%3Akabeer%2Fkabeer-os+is%3Aissue+assignee%3Akabeer+state%3Aopen+bug&per_page=2",
+            ]),
+            JSON.stringify({
+              items: [
+                {
+                  id: 12,
+                  number: 3,
+                  title: "Fix dashboard bug",
+                  state: "open",
+                  html_url: "https://github.com/kabeer/kabeer-os/issues/3",
+                  repository_url: "https://api.github.com/repos/kabeer/kabeer-os",
+                  created_at: "2026-07-02T08:00:00.000Z",
+                  updated_at: "2026-07-02T09:00:00.000Z",
+                  user: {
+                    login: "octocat",
+                  },
+                  labels: [
+                    {
+                      name: "bug",
+                    },
+                  ],
+                },
+              ],
+            }),
+          ],
+        ]),
+      ),
+    });
+
+    const result = await provider.searchIssues({
+      repository: "kabeer/kabeer-os",
+      assignee: "me",
+      state: "open",
+      query: "bug",
+      limit: 2,
+    });
+
+    assert.deepEqual(result, {
+      searchedAt: "2026-07-02T10:00:00.000Z",
+      repository: "kabeer/kabeer-os",
+      issues: [
+        {
+          id: "github:issue:12",
+          repo: "kabeer/kabeer-os",
+          number: 3,
+          title: "Fix dashboard bug",
+          state: "open",
+          url: "https://github.com/kabeer/kabeer-os/issues/3",
+          createdAt: "2026-07-02T08:00:00.000Z",
+          updatedAt: "2026-07-02T09:00:00.000Z",
+          author: "octocat",
+          labels: ["bug"],
+          metadata: {
+            subjectType: "issue",
+          },
+        },
+      ],
+    });
+  });
+
   it("blocks non-allowlisted default gh commands", async () => {
     const provider = createGhGitHubProvider({
       runner: {

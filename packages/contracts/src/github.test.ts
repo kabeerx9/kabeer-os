@@ -6,6 +6,10 @@ import {
   githubAttentionResultSchema,
   githubDailySummaryInputSchema,
   githubDailySummaryResultSchema,
+  githubIssueSearchInputSchema,
+  githubIssueSearchResultSchema,
+  githubRepositorySearchInputSchema,
+  githubRepositorySearchResultSchema,
   githubSyncInputSchema,
   githubSyncResultSchema,
   githubSyncSnapshotSchema,
@@ -47,6 +51,79 @@ describe("githubAttentionInputSchema", () => {
 
   it("rejects invalid repository names", () => {
     assert.throws(() => githubAttentionInputSchema.parse({ repositories: ["not a repo"] }));
+  });
+});
+
+describe("githubRepositorySearchSchema", () => {
+  it("defaults repository search limit", () => {
+    assert.deepEqual(githubRepositorySearchInputSchema.parse({ query: "kabeer-os" }), {
+      query: "kabeer-os",
+      limit: 10,
+    });
+  });
+
+  it("accepts repository search results", () => {
+    const result = {
+      searchedAt: "2026-07-02T10:00:00.000Z",
+      query: "kabeer-os",
+      repositories: [
+        {
+          name: "kabeer/kabeer-os",
+          description: "Personal OS",
+          url: "https://github.com/kabeer/kabeer-os",
+          private: true,
+          updatedAt: "2026-07-02T09:00:00.000Z",
+        },
+      ],
+    };
+
+    assert.deepEqual(githubRepositorySearchResultSchema.parse(result), result);
+  });
+});
+
+describe("githubIssueSearchSchema", () => {
+  it("defaults issue search filters", () => {
+    assert.deepEqual(githubIssueSearchInputSchema.parse({ repository: "kabeer/kabeer-os" }), {
+      repository: "kabeer/kabeer-os",
+      assignee: "me",
+      state: "open",
+      limit: 20,
+    });
+  });
+
+  it("accepts issue search results", () => {
+    const result = {
+      searchedAt: "2026-07-02T10:00:00.000Z",
+      repository: "kabeer/kabeer-os",
+      issues: [
+        {
+          id: "github:issue:12",
+          repo: "kabeer/kabeer-os",
+          number: 3,
+          title: "Wire assistant chat",
+          state: "open",
+          url: "https://github.com/kabeer/kabeer-os/issues/3",
+          createdAt: "2026-07-02T08:00:00.000Z",
+          updatedAt: "2026-07-02T09:00:00.000Z",
+          author: "kabeer",
+          labels: ["frontend"],
+          metadata: {
+            subjectType: "issue",
+          },
+        },
+      ],
+    };
+
+    assert.deepEqual(githubIssueSearchResultSchema.parse(result), result);
+  });
+
+  it("rejects invalid assignee values", () => {
+    assert.throws(() =>
+      githubIssueSearchInputSchema.parse({
+        repository: "kabeer/kabeer-os",
+        assignee: "bad assignee",
+      }),
+    );
   });
 });
 

@@ -1,10 +1,19 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
 import { Button, buttonVariants } from "@app-starter/ui/components/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@app-starter/ui/components/card";
+import {
+  MessageScroller,
+  MessageScrollerButton,
+  MessageScrollerContent,
+  MessageScrollerItem,
+  MessageScrollerProvider,
+  MessageScrollerViewport,
+} from "@app-starter/ui/components/message-scroller";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   AtSign,
+  Bot,
   ChevronDown,
   CircleDot,
   ExternalLink,
@@ -14,6 +23,7 @@ import {
   GitGraph,
   MessageSquare,
   RefreshCw,
+  SendHorizontal,
   Sparkles,
   Tag,
   UserRound,
@@ -25,8 +35,11 @@ import {
   ApiError,
   generateGitHubDailySummary,
   getLatestGitHubSync,
+  sendAssistantMessage,
   syncGitHub,
   syncGitHubAttention,
+  type AssistantMessage,
+  type AssistantStep,
   type GitHubActivity,
   type GitHubAttentionItem,
   type GitHubAttentionResult,
@@ -101,6 +114,13 @@ type CommitMetadata = {
   sha?: string;
   message: string;
   url?: string;
+};
+
+type DashboardChatMessage = {
+  id: string;
+  role: AssistantMessage["role"];
+  content: string;
+  steps?: AssistantStep[];
 };
 
 const dateFormatter = new Intl.DateTimeFormat(undefined, {
@@ -294,6 +314,10 @@ function firstCommitLine(message: string) {
 
 function shortSha(sha: string) {
   return sha.slice(0, 7);
+}
+
+function createChatMessageId(role: AssistantMessage["role"]) {
+  return `${role}-${crypto.randomUUID()}`;
 }
 
 function apiErrorMessage(error: unknown, fallback: string) {
@@ -498,73 +522,236 @@ function DashboardPage() {
           </CardContent>
         </Card>
 
-      {syncError ? (
-        <StatusPanel
-          message={syncError}
-          actionLabel="Retry sync"
-          onAction={() => void handleGitHubSync()}
-        />
-      ) : null}
-      {attentionError ? (
-        <StatusPanel
-          message={attentionError}
-          actionLabel="Retry attention"
-          onAction={() => void loadGitHubAttention()}
-        />
-      ) : null}
-      {summaryError ? (
-        <StatusPanel
-          message={summaryError}
-          actionLabel="Retry summary"
-          onAction={() =>
-            void loadGitHubDailySummary({
-              sync: syncResult,
-              newActivityIds,
-              attention: attentionResult,
-            })
-          }
-        />
-      ) : null}
+        <AssistantChatPanel />
 
-      <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(340px,0.75fr)]">
-        <Card className="card-content p-0 border border-border">
-          <CardHeader className="border-b border-border bg-zap-canvas-soft p-6">
-            <CardTitle className="text-display-sub-sm text-zap-ink">Activity Feed</CardTitle>
-            <p className="text-body-sm text-zap-body">
-              {syncWindow ?? "Last 24 hours after sync"}
-            </p>
-          </CardHeader>
-          <CardContent className="p-0 pt-0">
-            {syncing ? (
-              <LoadingState label="Syncing GitHub activity..." />
-            ) : syncSnapshotLoading ? (
-              <LoadingState label="Loading saved GitHub activity..." />
-            ) : syncResult ? (
-              <GitHubActivityList
-                activities={syncResult.activities}
-                newActivityIds={newActivityIds}
-              />
-            ) : (
-              <EmptyState label="No GitHub sync yet." />
-            )}
-          </CardContent>
-        </Card>
+        {syncError ? (
+          <StatusPanel
+            message={syncError}
+            actionLabel="Retry sync"
+            onAction={() => void handleGitHubSync()}
+          />
+        ) : null}
+        {attentionError ? (
+          <StatusPanel
+            message={attentionError}
+            actionLabel="Retry attention"
+            onAction={() => void loadGitHubAttention()}
+          />
+        ) : null}
+        {summaryError ? (
+          <StatusPanel
+            message={summaryError}
+            actionLabel="Retry summary"
+            onAction={() =>
+              void loadGitHubDailySummary({
+                sync: syncResult,
+                newActivityIds,
+                attention: attentionResult,
+              })
+            }
+          />
+        ) : null}
 
-        <Card className="card-content p-0 border border-border h-fit">
-          <CardHeader className="border-b border-border bg-zap-canvas-soft p-6">
-            <CardTitle className="text-display-sub-sm text-zap-ink">Needs Attention</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0 pt-0">
-            {attentionLoading ? (
-              <LoadingState label="Syncing attention..." />
-            ) : attentionResult?.items.length ? (
-              <AttentionList items={attentionResult.items} />
-            ) : (
-              <EmptyState label="You're all caught up! No items need your attention right now." />
+        <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(340px,0.75fr)]">
+          <Card className="card-content p-0 border border-border">
+            <CardHeader className="border-b border-border bg-zap-canvas-soft p-6">
+              <CardTitle className="text-display-sub-sm text-zap-ink">Activity Feed</CardTitle>
+              <p className="text-body-sm text-zap-body">
+                {syncWindow ?? "Last 24 hours after sync"}
+              </p>
+            </CardHeader>
+            <CardContent className="p-0 pt-0">
+              {syncing ? (
+                <LoadingState label="Syncing GitHub activity..." />
+              ) : syncSnapshotLoading ? (
+                <LoadingState label="Loading saved GitHub activity..." />
+              ) : syncResult ? (
+                <GitHubActivityList
+                  activities={syncResult.activities}
+                  newActivityIds={newActivityIds}
+                />
+              ) : (
+                <EmptyState label="No GitHub sync yet." />
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="card-content p-0 border border-border h-fit">
+            <CardHeader className="border-b border-border bg-zap-canvas-soft p-6">
+              <CardTitle className="text-display-sub-sm text-zap-ink">Needs Attention</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0 pt-0">
+              {attentionLoading ? (
+                <LoadingState label="Syncing attention..." />
+              ) : attentionResult?.items.length ? (
+                <AttentionList items={attentionResult.items} />
+              ) : (
+                <EmptyState label="You're all caught up! No items need your attention right now." />
+              )}
+            </CardContent>
+          </Card>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function AssistantChatPanel() {
+  const [messages, setMessages] = useState<DashboardChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const message = chatInput.trim();
+    if (!message || chatLoading) {
+      return;
+    }
+
+    const history = messages.map(({ role, content }) => ({ role, content }));
+    const userMessage: DashboardChatMessage = {
+      id: createChatMessageId("user"),
+      role: "user",
+      content: message,
+    };
+
+    setMessages((currentMessages) => [...currentMessages, userMessage]);
+    setChatInput("");
+    setChatError(null);
+    setChatLoading(true);
+
+    try {
+      const result = await sendAssistantMessage({ message, history });
+      setMessages((currentMessages) => [
+        ...currentMessages,
+        {
+          id: createChatMessageId("assistant"),
+          role: "assistant",
+          content: result.message,
+          steps: result.steps,
+        },
+      ]);
+    } catch (error: unknown) {
+      setChatError(apiErrorMessage(error, "Assistant failed to respond"));
+    } finally {
+      setChatLoading(false);
+    }
+  }
+
+  return (
+    <Card className="card-content border border-border p-0">
+      <CardHeader className="border-b border-border bg-zap-canvas-soft p-6">
+        <CardTitle className="flex items-center gap-2 text-display-sub-sm text-zap-ink">
+          <Bot className="size-5 text-zap-primary" />
+          Assistant
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4 p-6">
+        <MessageScrollerProvider autoScroll defaultScrollPosition="end" scrollPreviousItemPeek={64}>
+          <MessageScroller className="h-[360px] rounded-md border border-border bg-background">
+            <MessageScrollerViewport>
+              <MessageScrollerContent>
+                {messages.length === 0 ? (
+                  <MessageScrollerItem messageId="assistant-empty">
+                    <AssistantEmptyMessage />
+                  </MessageScrollerItem>
+                ) : null}
+                {messages.map((message) => (
+                  <MessageScrollerItem
+                    key={message.id}
+                    messageId={message.id}
+                    scrollAnchor={message.role === "user"}
+                  >
+                    <AssistantMessageBubble message={message} />
+                  </MessageScrollerItem>
+                ))}
+                {chatLoading ? (
+                  <MessageScrollerItem messageId="assistant-loading">
+                    <div className="flex justify-start">
+                      <div className="flex max-w-[85%] items-center gap-2 rounded-md border border-border bg-zap-canvas-soft px-3 py-2 text-body-sm text-zap-body">
+                        <RefreshCw className="size-3.5 animate-spin" />
+                        Thinking
+                      </div>
+                    </div>
+                  </MessageScrollerItem>
+                ) : null}
+              </MessageScrollerContent>
+            </MessageScrollerViewport>
+            <MessageScrollerButton />
+          </MessageScroller>
+        </MessageScrollerProvider>
+
+        <form className="flex flex-col gap-3 sm:flex-row" onSubmit={handleSubmit}>
+          <textarea
+            aria-label="Assistant message"
+            className="min-h-20 flex-1 resize-none rounded-md border border-border bg-background px-3 py-2 text-body-sm text-zap-ink outline-none transition focus-visible:ring-1 focus-visible:ring-ring/50"
+            placeholder="Message Kabeer OS"
+            value={chatInput}
+            onChange={(event) => setChatInput(event.currentTarget.value)}
+            disabled={chatLoading}
+          />
+          <Button
+            type="submit"
+            disabled={chatLoading || chatInput.trim().length === 0}
+            className="h-10 rounded-md bg-primary px-4 text-zap-on-primary shadow-none hover:bg-primary/90 sm:h-auto"
+          >
+            <SendHorizontal className="size-4" data-icon="inline-start" />
+            Send
+          </Button>
+        </form>
+
+        {chatError ? (
+          <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-body-sm text-destructive">
+            <XCircle className="size-4" />
+            {chatError}
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+}
+
+function AssistantEmptyMessage() {
+  return (
+    <div className="flex justify-start">
+      <div className="max-w-[85%] rounded-md border border-border bg-zap-canvas-soft px-3 py-2 text-body-sm text-zap-body">
+        What do you want to check?
+      </div>
+    </div>
+  );
+}
+
+function AssistantMessageBubble({ message }: { message: DashboardChatMessage }) {
+  const isUser = message.role === "user";
+  const capabilitySteps =
+    message.steps?.filter((step) => step.decision.type === "call_capability") ?? [];
+
+  return (
+    <div className={isUser ? "flex justify-end" : "flex justify-start"}>
+      <div
+        className={
+          isUser
+            ? "max-w-[85%] rounded-md bg-primary px-3 py-2 text-body-sm text-zap-on-primary"
+            : "max-w-[85%] rounded-md border border-border bg-zap-canvas-soft px-3 py-2 text-body-sm text-zap-ink"
+        }
+      >
+        <p className="whitespace-pre-wrap break-words">{message.content}</p>
+        {!isUser && capabilitySteps.length ? (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {capabilitySteps.map((step) =>
+              step.decision.type === "call_capability" ? (
+                <span
+                  key={`${message.id}-${step.index}`}
+                  className="rounded-md border border-border bg-background px-2 py-0.5 text-[11px] text-zap-body"
+                >
+                  {step.decision.capability}
+                </span>
+              ) : null,
             )}
-          </CardContent>
-        </Card>
-      </section>
+          </div>
+        ) : null}
       </div>
     </div>
   );

@@ -1,6 +1,9 @@
+import "dotenv/config";
+
 import fastifyCors from "@fastify/cors";
 import Fastify from "fastify";
 
+import { registerAssistantRoutes } from "./routes/assistant";
 import { registerCapabilitiesRoutes } from "./routes/capabilities";
 import { registerGitHubRoutes } from "./routes/github";
 import { registerMorningBriefRoutes } from "./routes/morning-brief";
@@ -19,6 +22,7 @@ const fastify = Fastify({
 const port = Number.parseInt(process.env.PORT ?? "3000", 10);
 
 fastify.register(fastifyCors, baseCorsConfig);
+fastify.register(registerAssistantRoutes);
 fastify.register(registerCapabilitiesRoutes);
 fastify.register(registerGitHubRoutes);
 fastify.register(registerMorningBriefRoutes);

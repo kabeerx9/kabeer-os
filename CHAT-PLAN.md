@@ -121,7 +121,7 @@ Suggested env:
 ```text
 MODEL_PROVIDER=openrouter
 OPENROUTER_API_KEY=
-OPENROUTER_MODEL=anthropic/claude-sonnet-4
+OPENROUTER_MODEL=openai/gpt-4.1-mini
 OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
 ```
 
@@ -182,7 +182,6 @@ const maxObservationChars = 6000;
 const allowedCapabilities = [
   "github.searchRepositories",
   "github.searchIssues",
-  "github.searchPullRequests",
   "github.sync",
   "github.attentionSync",
   "github.dailySummary.generate",
@@ -215,19 +214,19 @@ We already have:
 - `github.sync`
 - `github.attentionSync`
 - `github.dailySummary.generate`
+- `github.searchRepositories`
+- `github.searchIssues`
 
-Add next:
+Possible next additions:
 
 ```text
-github.searchRepositories
-github.searchIssues
 github.searchPullRequests
 github.getIssue
 github.getPullRequest
 github.getWorkflowFailures
 ```
 
-Start with only:
+V1 starts with:
 
 ```text
 github.searchRepositories
@@ -446,6 +445,8 @@ For V1, keep this in response/debug output only. Persist audit logs later.
 
 Goal: prove the loop with the real OpenRouter runtime provider behind a generic `ModelProvider` interface.
 
+Status: done. Assistant contracts, `ModelProvider`, `OpenRouterModelProvider`, `AssistantOrchestrator`, and `POST /api/assistant/chat` are implemented. Runtime uses OpenRouter when `OPENROUTER_API_KEY` is configured. Automated tests inject fake model providers and do not call the network.
+
 Tasks:
 
 - Add assistant contracts.
@@ -468,6 +469,8 @@ Exit criteria:
 
 Goal: answer repo-specific GitHub questions.
 
+Status: done. `github.searchRepositories` and `github.searchIssues` are implemented as read-only capabilities. The provider translates them into allowlisted `gh api` calls and tests cover the repo-search-then-issue-search assistant loop.
+
 Tasks:
 
 - Add `github.searchRepositories`.
@@ -487,6 +490,8 @@ Exit criteria:
 ### Phase 3: Dashboard Chat UI
 
 Goal: make the loop usable from the app.
+
+Status: done. The dashboard has an assistant chat panel below Daily Summary using shadcn `MessageScroller`, the web API client calls `POST /api/assistant/chat`, and assistant responses can show capability-step chips.
 
 Tasks:
 
@@ -583,6 +588,6 @@ Mitigations:
 
 ## Current Next Step
 
-Start Phase 1.
+Start Phase 2.
 
-Use OpenRouter from the first runnable version, but keep it behind `ModelProvider` so the orchestrator does not care which model vendor is active.
+Add `github.searchRepositories` and `github.searchIssues`, then let the assistant loop answer repo-specific GitHub questions such as "what issues are assigned to me in sfs-native?"

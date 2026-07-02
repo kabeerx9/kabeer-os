@@ -36,17 +36,25 @@ const sampleDailySummary = {
   empty: true,
 };
 
+const unusedGitHubProvider = {
+  syncActivity: async () => {
+    throw new Error("Not used");
+  },
+  syncAttention: async () => {
+    throw new Error("Not used");
+  },
+  searchRepositories: async () => {
+    throw new Error("Not used");
+  },
+  searchIssues: async () => {
+    throw new Error("Not used");
+  },
+};
+
 describe("capability registry", () => {
   it("lists capabilities with approval metadata", () => {
     const registry = createCapabilityRegistry({
-      githubProvider: {
-        syncActivity: async () => {
-          throw new Error("Not used");
-        },
-        syncAttention: async () => {
-          throw new Error("Not used");
-        },
-      },
+      githubProvider: unusedGitHubProvider,
       morningBriefService: {
         getMorningBrief: async () => sampleBrief,
       },
@@ -66,20 +74,22 @@ describe("capability registry", () => {
         ?.status,
       "available",
     );
+    assert.equal(
+      capabilities.find((capability) => capability.name === "github.searchRepositories")
+        ?.status,
+      "available",
+    );
+    assert.equal(
+      capabilities.find((capability) => capability.name === "github.searchIssues")?.status,
+      "available",
+    );
     assert.equal(startCodexTask?.approval, "required");
     assert.equal(startCodexTask?.requiresApproval, true);
   });
 
   it("executes the available morning brief read capability", async () => {
     const registry = createCapabilityRegistry({
-      githubProvider: {
-        syncActivity: async () => {
-          throw new Error("Not used");
-        },
-        syncAttention: async () => {
-          throw new Error("Not used");
-        },
-      },
+      githubProvider: unusedGitHubProvider,
       morningBriefService: {
         getMorningBrief: async () => sampleBrief,
       },
@@ -94,6 +104,7 @@ describe("capability registry", () => {
   it("executes the available GitHub sync capability", async () => {
     const registry = createCapabilityRegistry({
       githubProvider: {
+        ...unusedGitHubProvider,
         syncActivity: async () => ({
           syncedAt: "2026-07-02T10:00:00.000Z",
           since: "2026-07-01T10:00:00.000Z",
@@ -102,9 +113,6 @@ describe("capability registry", () => {
           workItems: [],
           recommendedActions: [],
         }),
-        syncAttention: async () => {
-          throw new Error("Not used");
-        },
       },
       morningBriefService: {
         getMorningBrief: async () => sampleBrief,
@@ -124,9 +132,7 @@ describe("capability registry", () => {
   it("executes the available GitHub attention capability", async () => {
     const registry = createCapabilityRegistry({
       githubProvider: {
-        syncActivity: async () => {
-          throw new Error("Not used");
-        },
+        ...unusedGitHubProvider,
         syncAttention: async (input) => ({
           syncedAt: "2026-07-02T10:00:00.000Z",
           username: "kabeer",
@@ -152,16 +158,79 @@ describe("capability registry", () => {
     );
   });
 
-  it("executes the available GitHub daily summary capability", async () => {
+  it("executes the available GitHub repository search capability", async () => {
     const registry = createCapabilityRegistry({
       githubProvider: {
-        syncActivity: async () => {
-          throw new Error("Not used");
-        },
-        syncAttention: async () => {
-          throw new Error("Not used");
-        },
+        ...unusedGitHubProvider,
+        searchRepositories: async (input) => ({
+          searchedAt: "2026-07-02T10:00:00.000Z",
+          query: input.query,
+          repositories: [
+            {
+              name: "kabeer/kabeer-os",
+              description: "Personal OS",
+              url: "https://github.com/kabeer/kabeer-os",
+              private: true,
+              updatedAt: "2026-07-02T09:00:00.000Z",
+            },
+          ],
+        }),
       },
+      morningBriefService: {
+        getMorningBrief: async () => sampleBrief,
+      },
+    });
+
+    assert.deepEqual(
+      await registry.executeCapability("github.searchRepositories", {
+        query: "kabeer-os",
+      }),
+      {
+        searchedAt: "2026-07-02T10:00:00.000Z",
+        query: "kabeer-os",
+        repositories: [
+          {
+            name: "kabeer/kabeer-os",
+            description: "Personal OS",
+            url: "https://github.com/kabeer/kabeer-os",
+            private: true,
+            updatedAt: "2026-07-02T09:00:00.000Z",
+          },
+        ],
+      },
+    );
+  });
+
+  it("executes the available GitHub issue search capability", async () => {
+    const registry = createCapabilityRegistry({
+      githubProvider: {
+        ...unusedGitHubProvider,
+        searchIssues: async (input) => ({
+          searchedAt: "2026-07-02T10:00:00.000Z",
+          repository: input.repository,
+          issues: [],
+        }),
+      },
+      morningBriefService: {
+        getMorningBrief: async () => sampleBrief,
+      },
+    });
+
+    assert.deepEqual(
+      await registry.executeCapability("github.searchIssues", {
+        repository: "kabeer/kabeer-os",
+      }),
+      {
+        searchedAt: "2026-07-02T10:00:00.000Z",
+        repository: "kabeer/kabeer-os",
+        issues: [],
+      },
+    );
+  });
+
+  it("executes the available GitHub daily summary capability", async () => {
+    const registry = createCapabilityRegistry({
+      githubProvider: unusedGitHubProvider,
       githubDailySummaryService: {
         generate: async (input) => ({
           ...sampleDailySummary,

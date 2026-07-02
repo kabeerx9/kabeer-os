@@ -96,6 +96,8 @@ Current implementation:
 - `GET /api/capabilities` exposes the current capability map.
 - `GET /api/morning-brief` executes the internal `morningBrief.read` capability.
 - `POST /api/github/sync` executes the internal `github.sync` capability.
+- `github.searchRepositories` and `github.searchIssues` are read-only capabilities available to assistant chat.
+- `POST /api/assistant/chat` runs a bounded assistant loop through `ModelProvider` and the capability registry.
 - Planned capabilities can be listed before they are executable, but they cannot be run until implemented.
 
 ## Approval Policy
