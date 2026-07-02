@@ -127,10 +127,11 @@ Use a push-to-talk button in the dashboard first. Always-listening can come much
 
 - Local web dashboard in `apps/web`.
 - Dashboard sections:
-  - Morning summary
-  - Important work items
-  - Recommended actions
-  - Codex task launcher
+  - Daily summary
+  - Project-wise GitHub activity
+  - New activity
+  - Needs attention
+  - Future Codex task launcher
 
 ### Backend
 
@@ -301,7 +302,7 @@ Replace the starter dashboard with:
 
 Outcome: the product feels real before integrations are wired.
 
-Status: done. The dashboard exposes a GitHub sync button, shows project-wise activity, tracks new activity, and no longer shows the mocked important-work section.
+Status: done. The dashboard exposes a GitHub sync button, shows a deterministic daily summary, shows project-wise activity, tracks new activity, and no longer shows the mocked important-work section.
 
 ### Step 5: Wire GitHub Read-Only Sync
 
@@ -315,7 +316,7 @@ Start with read-only commands.
 
 Outcome: the dashboard shows real GitHub data.
 
-Status: in progress. The backend now has read-only `github.sync` and `github.attentionSync` capabilities. `POST /api/github/sync` fetches recent GitHub activity over the last 24 hours by default and persists it locally. Push events include commit metadata, and the dashboard groups synced activity by project with separate push, issue, pull request, and other sections. `POST /api/github/attention/sync` now fetches review requests, assigned open items, mentions, and failed workflow runs; the dashboard renders those under "Needs attention."
+Status: in progress. The backend now has read-only `github.sync`, `github.attentionSync`, and `github.dailySummary.generate` capabilities. `POST /api/github/sync` fetches recent GitHub activity over the last 24 hours by default and persists it locally. Push events include commit metadata, and the dashboard groups synced activity by project with separate push, issue, pull request, and other sections. `POST /api/github/attention/sync` fetches review requests, assigned open items, mentions, and failed workflow runs. `POST /api/github/daily-summary` generates deterministic summary text from the normalized activity and attention data.
 
 ### Step 6: Add Local Persistence
 
@@ -329,7 +330,7 @@ Start with JSON if faster; move to SQLite when the shape stabilizes.
 
 Outcome: the app can say what changed since the last run.
 
-Status: partially done. GitHub sync now persists to `apps/server/.data/github-sync.json`, tracks `seenActivityIds`, stores `lastNewActivityIds`, exposes `GET /api/github/sync/latest`, and reloads the persisted dashboard snapshot after refresh. The last generated brief is still future work.
+Status: partially done. GitHub sync now persists to `apps/server/.data/github-sync.json`, tracks `seenActivityIds`, stores `lastNewActivityIds`, exposes `GET /api/github/sync/latest`, and reloads the persisted dashboard snapshot after refresh. The generated daily summary is computed on demand; persisting generated summaries is still future work.
 
 ### Step 7: Add Codex Task Drafting
 

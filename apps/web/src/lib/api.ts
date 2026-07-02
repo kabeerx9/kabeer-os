@@ -7,6 +7,8 @@ import {
   exampleProjectSchema,
   githubAttentionInputSchema,
   githubAttentionResultSchema,
+  githubDailySummaryInputSchema,
+  githubDailySummaryResultSchema,
   githubSyncInputSchema,
   githubSyncSnapshotSchema,
   meResponseSchema,
@@ -20,6 +22,8 @@ import {
   type GitHubAttentionInput,
   type GitHubAttentionItem,
   type GitHubAttentionResult,
+  type GitHubDailySummaryInput,
+  type GitHubDailySummaryResult,
   type GitHubSyncInput,
   type GitHubSyncResult,
   type GitHubSyncSnapshot,
@@ -42,6 +46,8 @@ export type {
   GitHubAttentionInput,
   GitHubAttentionItem,
   GitHubAttentionResult,
+  GitHubDailySummaryInput,
+  GitHubDailySummaryResult,
   GitHubSyncInput,
   GitHubSyncResult,
   GitHubSyncSnapshot,
@@ -83,6 +89,14 @@ export function syncGitHub(input: Partial<GitHubSyncInput> = {}) {
 export function syncGitHubAttention(input: Partial<GitHubAttentionInput> = {}) {
   const body = githubAttentionInputSchema.parse(input);
   return api.requestJson("/api/github/attention/sync", githubAttentionResultSchema, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function generateGitHubDailySummary(input: Partial<GitHubDailySummaryInput> = {}) {
+  const body = githubDailySummaryInputSchema.parse(input);
+  return api.requestJson("/api/github/daily-summary", githubDailySummaryResultSchema, {
     method: "POST",
     body: JSON.stringify(body),
   });

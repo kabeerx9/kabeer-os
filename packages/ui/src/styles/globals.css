@@ -36,7 +36,7 @@
   --input: #c5c0b1;
   --ring: #ff4f00;
   
-  --radius: 0.75rem; /* 12px (md) */
+  --radius: 0.5rem; /* 8px */
 }
 
 .dark {
@@ -105,9 +105,9 @@
   --color-foreground: var(--foreground);
   --color-background: var(--background);
   
-  --radius-sm: calc(var(--radius) - 4px); /* 8px */
-  --radius-md: var(--radius); /* 12px */
-  --radius-lg: calc(var(--radius) + 4px); /* 16px */
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 2px);
   --radius-full: 9999px;
 }
 
@@ -130,7 +130,7 @@
 }
 
 @utility text-display-md {
-  @apply font-display text-[32px] font-medium leading-[36px] tracking-[1px];
+  @apply font-display text-[32px] font-medium leading-[36px] tracking-normal;
 }
 
 @utility text-display-sub-lg {
@@ -142,15 +142,15 @@
 }
 
 @utility text-display-sub-sm {
-  @apply font-sans text-[24px] font-semibold leading-[30px] tracking-[-0.6px];
+  @apply font-sans text-[24px] font-semibold leading-[30px] tracking-normal;
 }
 
 @utility text-display-xs {
-  @apply font-sans text-[20px] font-bold leading-[25px] tracking-[-0.5px];
+  @apply font-sans text-[20px] font-bold leading-[25px] tracking-normal;
 }
 
 @utility text-body-lg {
-  @apply font-sans text-[20px] font-normal leading-[30px] tracking-[-0.2px];
+  @apply font-sans text-[20px] font-normal leading-[30px] tracking-normal;
 }
 
 @utility text-body-md {
@@ -174,7 +174,7 @@
 }
 
 @utility text-eyebrow {
-  @apply font-display text-[14px] font-medium leading-[14px] tracking-[1px] uppercase;
+  @apply font-display text-[14px] font-medium leading-[14px] tracking-normal uppercase;
 }
 
 /* Custom Card Utilities */

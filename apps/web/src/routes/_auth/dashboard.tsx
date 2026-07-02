@@ -23,12 +23,15 @@ import {
 
 import {
   ApiError,
+  generateGitHubDailySummary,
   getLatestGitHubSync,
   syncGitHub,
   syncGitHubAttention,
   type GitHubActivity,
   type GitHubAttentionItem,
   type GitHubAttentionResult,
+  type GitHubDailySummaryInput,
+  type GitHubDailySummaryResult,
   type GitHubSyncSnapshot,
 } from "@/lib/api";
 
@@ -58,6 +61,8 @@ const activitySectionLabels = {
 } as const;
 
 const activitySectionOrder = ["pushes", "issues", "pull_requests", "other"] as const;
+
+const emptyNewActivityIds: string[] = [];
 
 const attentionKindLabels: Record<GitHubAttentionItem["kind"], string> = {
   review_request: "Review",
@@ -303,6 +308,9 @@ function DashboardPage() {
   const [attentionResult, setAttentionResult] = useState<GitHubAttentionResult | null>(null);
   const [attentionLoading, setAttentionLoading] = useState(true);
   const [attentionError, setAttentionError] = useState<string | null>(null);
+  const [dailySummary, setDailySummary] = useState<GitHubDailySummaryResult | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(true);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
 
   const loadLatestGitHubSync = useCallback(async () => {
     setSyncSnapshotLoading(true);
@@ -330,6 +338,19 @@ function DashboardPage() {
     }
   }, []);
 
+  const loadGitHubDailySummary = useCallback(async (input: GitHubDailySummaryInput) => {
+    setSummaryLoading(true);
+    setSummaryError(null);
+
+    try {
+      setDailySummary(await generateGitHubDailySummary(input));
+    } catch (error: unknown) {
+      setSummaryError(apiErrorMessage(error, "Failed to generate GitHub summary"));
+    } finally {
+      setSummaryLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     void loadLatestGitHubSync();
     void loadGitHubAttention();
@@ -350,7 +371,7 @@ function DashboardPage() {
   }, [loadGitHubAttention]);
 
   const syncResult = syncSnapshot?.lastSync ?? null;
-  const newActivityIds = syncSnapshot?.newActivityIds ?? [];
+  const newActivityIds = syncSnapshot?.newActivityIds ?? emptyNewActivityIds;
   const githubCount = syncResult?.activities.length ?? 0;
   const newActivityCount = newActivityIds.length;
   const githubProjectCount = useMemo(() => {
@@ -368,6 +389,25 @@ function DashboardPage() {
 
     return `${formatDateTime(syncResult.since)} -> ${formatDateTime(syncResult.syncedAt)}`;
   }, [syncResult]);
+
+  useEffect(() => {
+    if (syncSnapshotLoading || attentionLoading) {
+      return;
+    }
+
+    void loadGitHubDailySummary({
+      sync: syncResult,
+      newActivityIds,
+      attention: attentionResult,
+    });
+  }, [
+    attentionLoading,
+    attentionResult,
+    loadGitHubDailySummary,
+    newActivityIds,
+    syncResult,
+    syncSnapshotLoading,
+  ]);
 
   return (
     <div className="min-h-screen bg-background pb-12">
@@ -437,6 +477,27 @@ function DashboardPage() {
           </Card>
         </div>
 
+        <Card className="card-content border border-border p-0">
+          <CardHeader className="border-b border-border bg-zap-canvas-soft p-6">
+            <CardTitle className="flex items-center gap-2 text-display-sub-sm text-zap-ink">
+              <Sparkles className="size-5 text-zap-primary" />
+              Daily Summary
+            </CardTitle>
+            <p className="text-body-sm text-zap-body">
+              Deterministic summary from GitHub activity and attention signals
+            </p>
+          </CardHeader>
+          <CardContent className="p-6">
+            {summaryLoading ? (
+              <LoadingState label="Generating summary..." />
+            ) : dailySummary ? (
+              <DailySummaryPanel summary={dailySummary} />
+            ) : (
+              <EmptyState label="No summary generated yet." />
+            )}
+          </CardContent>
+        </Card>
+
       {syncError ? (
         <StatusPanel
           message={syncError}
@@ -449,6 +510,19 @@ function DashboardPage() {
           message={attentionError}
           actionLabel="Retry attention"
           onAction={() => void loadGitHubAttention()}
+        />
+      ) : null}
+      {summaryError ? (
+        <StatusPanel
+          message={summaryError}
+          actionLabel="Retry summary"
+          onAction={() =>
+            void loadGitHubDailySummary({
+              sync: syncResult,
+              newActivityIds,
+              attention: attentionResult,
+            })
+          }
         />
       ) : null}
 
@@ -534,6 +608,27 @@ function EmptyState({ label }: { label: string }) {
         <Sparkles className="size-5" />
       </div>
       <p className="text-sm font-medium">{label}</p>
+    </div>
+  );
+}
+
+function DailySummaryPanel({ summary }: { summary: GitHubDailySummaryResult }) {
+  return (
+    <div className="flex flex-col gap-5">
+      <div>
+        <p className="text-display-sub-sm text-zap-ink">{summary.headline}</p>
+        <p className="mt-2 text-body-md text-zap-body">{summary.summary}</p>
+      </div>
+
+      {summary.bullets.length ? (
+        <ul className="flex flex-col divide-y divide-border border-y border-border">
+          {summary.bullets.map((bullet) => (
+            <li key={bullet} className="py-3 text-body-sm text-zap-ink">
+              {bullet}
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </div>
   );
 }

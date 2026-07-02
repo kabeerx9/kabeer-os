@@ -10,6 +10,8 @@ import {
 import {
   githubAttentionInputSchema,
   githubAttentionResultSchema,
+  githubDailySummaryInputSchema,
+  githubDailySummaryResultSchema,
   githubSyncInputSchema,
   githubSyncResultSchema,
 } from "@app-starter/contracts/github";
@@ -24,9 +26,14 @@ import {
   defaultMorningBriefService,
   type MorningBriefService,
 } from "@/services/morning-brief";
+import {
+  defaultGitHubDailySummaryService,
+  type GitHubDailySummaryService,
+} from "@/services/github-daily-summary";
 
 export type CapabilityExecutionContext = {
   githubProvider: GitHubProvider;
+  githubDailySummaryService: GitHubDailySummaryService;
   morningBriefService: MorningBriefService;
 };
 
@@ -117,6 +124,20 @@ const capabilityDefinitions: CapabilityDefinition[] = [
       context.githubProvider.syncAttention(githubAttentionInputSchema.parse(input)),
   },
   {
+    name: "github.dailySummary.generate",
+    description: "Generate a deterministic daily summary from normalized GitHub activity and attention data.",
+    risk: "read",
+    approval: "none",
+    status: "available",
+    inputSchemaName: "githubDailySummaryInput",
+    outputSchemaName: "githubDailySummaryResult",
+    inputSchema: githubDailySummaryInputSchema,
+    outputSchema: githubDailySummaryResultSchema,
+    tags: ["github", "summary", "read"],
+    execute: async (input, context) =>
+      context.githubDailySummaryService.generate(githubDailySummaryInputSchema.parse(input)),
+  },
+  {
     name: "workItem.markSeen",
     description: "Mark a known work item as seen so future briefs can focus on changes.",
     risk: "write",
@@ -185,6 +206,7 @@ export function createCapabilityRegistry(
 ) {
   const context: CapabilityExecutionContext = {
     githubProvider: defaultGitHubProvider,
+    githubDailySummaryService: defaultGitHubDailySummaryService,
     morningBriefService: defaultMorningBriefService,
     ...contextOverrides,
   };

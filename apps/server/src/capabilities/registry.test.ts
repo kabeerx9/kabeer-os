@@ -18,6 +18,24 @@ const sampleBrief = {
   recommendedActions: [],
 };
 
+const sampleDailySummary = {
+  generatedAt: "2026-07-02T10:01:00.000Z",
+  window: null,
+  headline: "No GitHub activity found in this window.",
+  summary: "No GitHub attention items are open.",
+  bullets: [],
+  projects: [],
+  attention: {
+    summary: "No GitHub attention items are open.",
+    total: 0,
+    reviewRequests: 0,
+    assigned: 0,
+    mentions: 0,
+    failedWorkflows: 0,
+  },
+  empty: true,
+};
+
 describe("capability registry", () => {
   it("lists capabilities with approval metadata", () => {
     const registry = createCapabilityRegistry({
@@ -43,6 +61,11 @@ describe("capability registry", () => {
     assert.equal(githubSync?.risk, "read");
     assert.equal(githubSync?.requiresApproval, false);
     assert.equal(githubSync?.status, "available");
+    assert.equal(
+      capabilities.find((capability) => capability.name === "github.dailySummary.generate")
+        ?.status,
+      "available",
+    );
     assert.equal(startCodexTask?.approval, "required");
     assert.equal(startCodexTask?.requiresApproval, true);
   });
@@ -126,6 +149,33 @@ describe("capability registry", () => {
         repositories: ["kabeer/kabeer-os"],
         items: [],
       },
+    );
+  });
+
+  it("executes the available GitHub daily summary capability", async () => {
+    const registry = createCapabilityRegistry({
+      githubProvider: {
+        syncActivity: async () => {
+          throw new Error("Not used");
+        },
+        syncAttention: async () => {
+          throw new Error("Not used");
+        },
+      },
+      githubDailySummaryService: {
+        generate: async (input) => ({
+          ...sampleDailySummary,
+          empty: input.sync === null,
+        }),
+      },
+      morningBriefService: {
+        getMorningBrief: async () => sampleBrief,
+      },
+    });
+
+    assert.deepEqual(
+      await registry.executeCapability("github.dailySummary.generate", {}),
+      sampleDailySummary,
     );
   });
 

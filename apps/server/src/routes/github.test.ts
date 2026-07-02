@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import type { CapabilityName } from "@app-starter/contracts/capabilities";
 import type {
+  GitHubDailySummaryResult,
   GitHubSyncResult,
   GitHubSyncStoreState,
 } from "@app-starter/contracts/github";
@@ -71,6 +72,47 @@ const sampleAttentionResult = {
       },
     },
   ],
+};
+
+const sampleDailySummary: GitHubDailySummaryResult = {
+  generatedAt: "2026-07-02T10:01:00.000Z",
+  window: {
+    since: "2026-07-01T10:00:00.000Z",
+    syncedAt: "2026-07-02T10:00:00.000Z",
+  },
+  headline: "You worked on kabeer/kabeer-os.",
+  summary: "You pushed 2 commits in kabeer/kabeer-os. 1 open attention item: 1 review request.",
+  bullets: ["kabeer/kabeer-os: pushed 2 commits."],
+  projects: [
+    {
+      repo: "kabeer/kabeer-os",
+      latestAt: "2026-07-02T09:00:00.000Z",
+      summary: "kabeer/kabeer-os: pushed 2 commits.",
+      highlights: [],
+      counts: {
+        activities: 1,
+        newActivities: 1,
+        pushes: 1,
+        commits: 2,
+        pullRequests: 0,
+        issues: 0,
+        comments: 0,
+        reviews: 0,
+        releases: 0,
+        branchChanges: 0,
+        other: 0,
+      },
+    },
+  ],
+  attention: {
+    summary: "1 open attention item: 1 review request.",
+    total: 1,
+    reviewRequests: 1,
+    assigned: 0,
+    mentions: 0,
+    failedWorkflows: 0,
+  },
+  empty: false,
 };
 
 function createMemoryStore(initialState?: Partial<GitHubSyncStoreState>): GitHubSyncStore {
@@ -246,5 +288,36 @@ describe("github routes", () => {
     });
 
     assert.equal(response.statusCode, 200);
+  });
+
+  it("generates a deterministic GitHub daily summary through the capability registry", async () => {
+    const app = Fastify();
+    app.register(registerGitHubRoutes, {
+      registry: {
+        executeCapability: async (name: CapabilityName, input: unknown) => {
+          assert.equal(name, "github.dailySummary.generate");
+          assert.deepEqual(input, {
+            sync: sampleResult,
+            newActivityIds: ["github:event:1"],
+            attention: sampleAttentionResult,
+          });
+          return sampleDailySummary;
+        },
+      },
+      syncStore: createMemoryStore(),
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/github/daily-summary",
+      payload: {
+        sync: sampleResult,
+        newActivityIds: ["github:event:1"],
+        attention: sampleAttentionResult,
+      },
+    });
+
+    assert.equal(response.statusCode, 200);
+    assert.deepEqual(response.json(), sampleDailySummary);
   });
 });

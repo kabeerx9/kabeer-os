@@ -104,8 +104,77 @@ export const githubAttentionResultSchema = z
   })
   .strict();
 
+export const githubDailySummaryInputSchema = z
+  .object({
+    sync: githubSyncResultSchema.nullable().default(null),
+    newActivityIds: z.array(z.string().min(1)).default([]),
+    attention: githubAttentionResultSchema.nullable().default(null),
+  })
+  .strict();
+
+export const githubDailySummaryCountsSchema = z
+  .object({
+    activities: z.number().int().min(0),
+    newActivities: z.number().int().min(0),
+    pushes: z.number().int().min(0),
+    commits: z.number().int().min(0),
+    pullRequests: z.number().int().min(0),
+    issues: z.number().int().min(0),
+    comments: z.number().int().min(0),
+    reviews: z.number().int().min(0),
+    releases: z.number().int().min(0),
+    branchChanges: z.number().int().min(0),
+    other: z.number().int().min(0),
+  })
+  .strict();
+
+export const githubDailySummaryProjectSchema = z
+  .object({
+    repo: githubRepositoryNameSchema,
+    latestAt: z.iso.datetime(),
+    summary: z.string().min(1),
+    highlights: z.array(z.string().min(1)),
+    counts: githubDailySummaryCountsSchema,
+  })
+  .strict();
+
+export const githubDailySummaryAttentionSchema = z
+  .object({
+    summary: z.string().min(1),
+    total: z.number().int().min(0),
+    reviewRequests: z.number().int().min(0),
+    assigned: z.number().int().min(0),
+    mentions: z.number().int().min(0),
+    failedWorkflows: z.number().int().min(0),
+  })
+  .strict();
+
+export const githubDailySummaryResultSchema = z
+  .object({
+    generatedAt: z.iso.datetime(),
+    window: z
+      .object({
+        since: z.iso.datetime(),
+        syncedAt: z.iso.datetime(),
+      })
+      .strict()
+      .nullable(),
+    headline: z.string().min(1),
+    summary: z.string().min(1),
+    bullets: z.array(z.string().min(1)),
+    projects: z.array(githubDailySummaryProjectSchema),
+    attention: githubDailySummaryAttentionSchema,
+    empty: z.boolean(),
+  })
+  .strict();
+
 export type GitHubSyncInput = z.infer<typeof githubSyncInputSchema>;
 export type GitHubAttentionInput = z.infer<typeof githubAttentionInputSchema>;
+export type GitHubDailySummaryInput = z.infer<typeof githubDailySummaryInputSchema>;
+export type GitHubDailySummaryCounts = z.infer<typeof githubDailySummaryCountsSchema>;
+export type GitHubDailySummaryProject = z.infer<typeof githubDailySummaryProjectSchema>;
+export type GitHubDailySummaryAttention = z.infer<typeof githubDailySummaryAttentionSchema>;
+export type GitHubDailySummaryResult = z.infer<typeof githubDailySummaryResultSchema>;
 export type GitHubActivityType = z.infer<typeof githubActivityTypeSchema>;
 export type GitHubActivity = z.infer<typeof githubActivitySchema>;
 export type GitHubSyncResult = z.infer<typeof githubSyncResultSchema>;

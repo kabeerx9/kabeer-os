@@ -1,6 +1,8 @@
 import {
   githubAttentionInputSchema,
   githubAttentionResultSchema,
+  githubDailySummaryInputSchema,
+  githubDailySummaryResultSchema,
   githubSyncInputSchema,
   githubSyncResultSchema,
   githubSyncSnapshotSchema,
@@ -96,5 +98,16 @@ export async function registerGitHubRoutes(
 
       throw error;
     }
+  });
+
+  fastify.post("/api/github/daily-summary", async (request, reply) => {
+    const input = githubDailySummaryInputSchema.safeParse(request.body ?? {});
+
+    if (!input.success) {
+      return reply.code(400).send({ error: invalidInputMessage(input.error) });
+    }
+
+    const result = await registry.executeCapability("github.dailySummary.generate", input.data);
+    return githubDailySummaryResultSchema.parse(result);
   });
 }

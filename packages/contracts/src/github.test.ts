@@ -4,6 +4,8 @@ import { describe, it } from "node:test";
 import {
   githubAttentionInputSchema,
   githubAttentionResultSchema,
+  githubDailySummaryInputSchema,
+  githubDailySummaryResultSchema,
   githubSyncInputSchema,
   githubSyncResultSchema,
   githubSyncSnapshotSchema,
@@ -175,5 +177,106 @@ describe("githubAttentionResultSchema", () => {
         ],
       }),
     );
+  });
+});
+
+describe("githubDailySummarySchema", () => {
+  const sync = {
+    syncedAt: "2026-07-02T10:00:00.000Z",
+    since: "2026-07-01T10:00:00.000Z",
+    username: "kabeer",
+    activities: [
+      {
+        id: "github:event:123",
+        type: "push",
+        action: "pushed",
+        repo: "kabeer/kabeer-os",
+        title: "Pushed 2 commits to kabeer/kabeer-os",
+        summary: "Updated main with 2 commits.",
+        url: "https://github.com/kabeer/kabeer-os",
+        createdAt: "2026-07-02T09:00:00.000Z",
+        metadata: {
+          branch: "main",
+          commitCount: 2,
+        },
+      },
+    ],
+    workItems: [],
+    recommendedActions: [],
+  };
+
+  const attention = {
+    syncedAt: "2026-07-02T10:00:00.000Z",
+    username: "kabeer",
+    repositories: ["kabeer/kabeer-os"],
+    items: [],
+  };
+
+  it("accepts normalized summary input", () => {
+    assert.deepEqual(
+      githubDailySummaryInputSchema.parse({
+        sync,
+        newActivityIds: ["github:event:123"],
+        attention,
+      }),
+      {
+        sync,
+        newActivityIds: ["github:event:123"],
+        attention,
+      },
+    );
+  });
+
+  it("defaults empty summary input", () => {
+    assert.deepEqual(githubDailySummaryInputSchema.parse({}), {
+      sync: null,
+      newActivityIds: [],
+      attention: null,
+    });
+  });
+
+  it("accepts a generated summary result", () => {
+    const result = {
+      generatedAt: "2026-07-02T10:01:00.000Z",
+      window: {
+        since: "2026-07-01T10:00:00.000Z",
+        syncedAt: "2026-07-02T10:00:00.000Z",
+      },
+      headline: "You worked on kabeer/kabeer-os.",
+      summary: "You pushed 2 commits in kabeer/kabeer-os. No GitHub attention items are open.",
+      bullets: ["kabeer/kabeer-os: pushed 2 commits."],
+      projects: [
+        {
+          repo: "kabeer/kabeer-os",
+          latestAt: "2026-07-02T09:00:00.000Z",
+          summary: "kabeer/kabeer-os: pushed 2 commits.",
+          highlights: ["Update GitHub sync"],
+          counts: {
+            activities: 1,
+            newActivities: 1,
+            pushes: 1,
+            commits: 2,
+            pullRequests: 0,
+            issues: 0,
+            comments: 0,
+            reviews: 0,
+            releases: 0,
+            branchChanges: 0,
+            other: 0,
+          },
+        },
+      ],
+      attention: {
+        summary: "No GitHub attention items are open.",
+        total: 0,
+        reviewRequests: 0,
+        assigned: 0,
+        mentions: 0,
+        failedWorkflows: 0,
+      },
+      empty: false,
+    };
+
+    assert.deepEqual(githubDailySummaryResultSchema.parse(result), result);
   });
 });
