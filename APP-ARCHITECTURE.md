@@ -4,7 +4,7 @@ Last updated: 2026-07-02
 
 This is the catch-up file for returning to the project after time away.
 
-Read this first to understand what the app is, how the pieces fit together, what exists today, and what should happen next. `PLAN.md` remains the execution checklist. `CORE-PLAN.md` remains the durable architecture philosophy. `FUTURE-PLAN.md` remains the long-term roadmap.
+Read this first to understand what the app is, how the pieces fit together, what exists today, and what should happen next. `PLAN.md` remains the execution checklist. `CORE-PLAN.md` remains the durable architecture philosophy. `CHAT-PLAN.md` covers the generic assistant loop and replaceable LLM provider plan. `FUTURE-PLAN.md` remains the long-term roadmap.
 
 ## Product Shape
 
