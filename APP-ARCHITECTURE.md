@@ -31,10 +31,11 @@ For now:
 - Backend generates a deterministic daily summary from normalized GitHub data.
 - Dashboard shows the summary, project-wise activity, new activity, and items that need attention.
 - Dashboard chat can ask the assistant GitHub questions through read-only capabilities.
+- Dashboard chat can also use browser voice input/output as a UI adapter over the same assistant route.
 
 Later:
 
-- Voice/text inputs route through the same capability system.
+- Deeper voice/text inputs route through the same capability system.
 - An LLM maps messy user requests to known capabilities.
 - Side-effecting capabilities still require approval.
 
@@ -42,6 +43,7 @@ Later:
 
 ```text
 apps/web dashboard
+  -> browser voice adapter (optional UI input/output)
   -> apps/server Fastify API
   -> capability registry
   -> providers/connectors
@@ -76,11 +78,13 @@ Current inputs:
 
 - dashboard load
 - dashboard button click
+- assistant text submit
+- assistant voice transcript
 
 Future inputs:
 
 - typed command
-- voice transcript
+- dedicated voice session
 - schedule
 - notification click
 - menu bar action
@@ -396,6 +400,47 @@ apps/server/src/routes/assistant.ts
 
 The assistant loop asks the model for one structured decision at a time, validates it, executes allowed capabilities through the registry, adds observations, and continues until it can respond, ask the user, stop, or hit the step limit.
 
+## Voice Input And Output
+
+Current voice mode is browser-only and lives in the dashboard chat UI:
+
+```text
+Web Speech API transcript
+  -> apps/web assistant chat panel
+  -> POST /api/assistant/chat
+  -> assistant response
+  -> browser speechSynthesis
+```
+
+Implemented file:
+
+```text
+apps/web/src/routes/_auth/dashboard.tsx
+```
+
+Current voice behavior:
+
+- Click `Voice` to start browser speech recognition.
+- Click `Stop voice` to stop recognition and send the transcript as a normal assistant message.
+- Voice-mode responses are spoken with browser `speechSynthesis` when available.
+- Typed chat and voice chat both call the same `sendAssistantMessage` API client.
+
+Important limits:
+
+- No always-listening mode.
+- No audio is stored or sent to the backend.
+- Voice does not execute actions directly.
+- Browser support depends on `SpeechRecognition` or `webkitSpeechRecognition`.
+
+Future provider boundary:
+
+```text
+VoiceInputProvider
+VoiceOutputProvider
+```
+
+Those can later wrap browser APIs, cloud speech APIs, local speech models, or platform-native speech. The assistant and capability system should not need to change when the voice provider changes.
+
 ## GitHub Sync Plan
 
 Recommended first version:
@@ -534,6 +579,7 @@ Done:
 - `POST /api/github/daily-summary`
 - `POST /api/assistant/chat`
 - dashboard chat panel using shadcn `MessageScroller`
+- dashboard assistant voice controls using browser speech recognition and `speechSynthesis`
 - dashboard reads `GET /api/github/sync/latest`
 - dashboard button calls `POST /api/github/sync`
 - dashboard renders deterministic daily summary from GitHub activity and attention data
@@ -544,6 +590,7 @@ Done:
 Next:
 
 - manually test dashboard chat with a real `OPENROUTER_API_KEY`
+- manually test browser voice mode in a browser with `SpeechRecognition` support
 - harden model provider timeouts/retries and error messages
 - add next GitHub read tools if needed, such as PR search or issue detail fetch
 

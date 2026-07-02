@@ -60,6 +60,7 @@ The GitHub provider may internally translate that into an allowlisted `gh api` c
 
 ```text
 apps/web chat panel
+  -> optional browser voice adapter
   -> POST /api/assistant/chat
   -> AssistantOrchestrator
   -> ModelProvider
@@ -70,6 +71,8 @@ apps/web chat panel
 ```
 
 The orchestrator is generic. GitHub is only the first tool pack.
+
+Browser voice mode is a UI adapter over this same route. It should produce a normal user message and consume a normal assistant response; it should not create a separate execution path.
 
 Future shape:
 
@@ -506,6 +509,27 @@ Exit criteria:
 - User can type a GitHub question and receive a backend-generated answer.
 - UI does not know GitHub command details.
 
+### Phase 3.5: Browser Voice Chat Prototype
+
+Goal: make the existing chat loop usable through a small push-to-talk browser voice flow.
+
+Status: done. The dashboard assistant panel can start browser speech recognition, send the transcript through the same `POST /api/assistant/chat` route, and speak voice-mode responses with browser `speechSynthesis` when available.
+
+Tasks:
+
+- Add browser speech recognition detection.
+- Add voice start/stop controls to the assistant panel.
+- Show interim/final transcript while listening.
+- Send the transcript as a normal chat message.
+- Speak the assistant response for voice-originated messages.
+- Keep typed chat and voice chat on the same API route.
+
+Exit criteria:
+
+- The user can click voice, ask a GitHub question, stop voice, and get a spoken assistant answer.
+- Voice does not bypass the assistant orchestrator, capability registry, or approval model.
+- No raw audio is stored or sent to the backend.
+
 ### Phase 4: Model Provider Hardening
 
 Goal: make the OpenRouter provider production-tolerable and keep the provider boundary ready for future swaps.
@@ -588,6 +612,6 @@ Mitigations:
 
 ## Current Next Step
 
-Start Phase 2.
+Start Phase 4.
 
-Add `github.searchRepositories` and `github.searchIssues`, then let the assistant loop answer repo-specific GitHub questions such as "what issues are assigned to me in sfs-native?"
+Harden the OpenRouter provider with timeouts, clearer provider errors, and better handling for bad model output.

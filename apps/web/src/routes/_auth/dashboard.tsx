@@ -1,4 +1,4 @@
-import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button, buttonVariants } from "@app-starter/ui/components/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@app-starter/ui/components/card";
@@ -22,11 +22,14 @@ import {
   GitPullRequest,
   GitGraph,
   MessageSquare,
+  Mic,
+  MicOff,
   RefreshCw,
   SendHorizontal,
   Sparkles,
   Tag,
   UserRound,
+  VolumeX,
   XCircle,
   Zap,
 } from "lucide-react";
@@ -122,6 +125,50 @@ type DashboardChatMessage = {
   content: string;
   steps?: AssistantStep[];
 };
+
+type SpeechRecognitionAlternativeLike = {
+  transcript: string;
+};
+
+type SpeechRecognitionResultLike = {
+  readonly isFinal: boolean;
+  readonly 0?: SpeechRecognitionAlternativeLike;
+};
+
+type SpeechRecognitionResultListLike = {
+  readonly length: number;
+  item(index: number): SpeechRecognitionResultLike;
+  readonly [index: number]: SpeechRecognitionResultLike | undefined;
+};
+
+type BrowserSpeechRecognitionEvent = {
+  readonly results: SpeechRecognitionResultListLike;
+};
+
+type BrowserSpeechRecognitionErrorEvent = {
+  readonly error?: string;
+  readonly message?: string;
+};
+
+type BrowserSpeechRecognition = {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  start(): void;
+  stop(): void;
+  abort(): void;
+  onresult: ((event: BrowserSpeechRecognitionEvent) => void) | null;
+  onerror: ((event: BrowserSpeechRecognitionErrorEvent) => void) | null;
+  onend: (() => void) | null;
+};
+
+type BrowserSpeechRecognitionConstructor = new () => BrowserSpeechRecognition;
+
+type SpeechWindow = Window &
+  typeof globalThis & {
+    SpeechRecognition?: BrowserSpeechRecognitionConstructor;
+    webkitSpeechRecognition?: BrowserSpeechRecognitionConstructor;
+  };
 
 const dateFormatter = new Intl.DateTimeFormat(undefined, {
   hour: "numeric",
@@ -322,6 +369,23 @@ function createChatMessageId(role: AssistantMessage["role"]) {
 
 function apiErrorMessage(error: unknown, fallback: string) {
   return error instanceof ApiError ? error.message : fallback;
+}
+
+function getSpeechRecognitionConstructor(): BrowserSpeechRecognitionConstructor | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const speechWindow = window as SpeechWindow;
+  return speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition ?? null;
+}
+
+function canUseSpeechSynthesis() {
+  return (
+    typeof window !== "undefined" &&
+    "speechSynthesis" in window &&
+    typeof SpeechSynthesisUtterance !== "undefined"
+  );
 }
 
 function DashboardPage() {
@@ -601,43 +665,191 @@ function AssistantChatPanel() {
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
+  const [voiceInputSupported, setVoiceInputSupported] = useState(false);
+  const [voiceOutputSupported, setVoiceOutputSupported] = useState(false);
+  const [listening, setListening] = useState(false);
+  const [voiceTranscript, setVoiceTranscript] = useState("");
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const [speaking, setSpeaking] = useState(false);
+  const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
+  const shouldSendVoiceTranscriptRef = useRef(false);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  useEffect(() => {
+    setVoiceInputSupported(getSpeechRecognitionConstructor() !== null);
+    setVoiceOutputSupported(canUseSpeechSynthesis());
 
-    const message = chatInput.trim();
-    if (!message || chatLoading) {
+    return () => {
+      shouldSendVoiceTranscriptRef.current = false;
+      recognitionRef.current?.abort();
+
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
+
+  const stopSpeaking = useCallback(() => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
       return;
     }
 
-    const history = messages.map(({ role, content }) => ({ role, content }));
-    const userMessage: DashboardChatMessage = {
-      id: createChatMessageId("user"),
-      role: "user",
-      content: message,
+    window.speechSynthesis.cancel();
+    setSpeaking(false);
+  }, []);
+
+  const speakText = useCallback(
+    (text: string) => {
+      if (!voiceOutputSupported || typeof window === "undefined") {
+        return;
+      }
+
+      stopSpeaking();
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 1;
+      utterance.onend = () => setSpeaking(false);
+      utterance.onerror = () => setSpeaking(false);
+
+      setSpeaking(true);
+      window.speechSynthesis.speak(utterance);
+    },
+    [stopSpeaking, voiceOutputSupported],
+  );
+
+  const sendChatMessage = useCallback(
+    async (rawMessage: string, options: { speakResponse?: boolean } = {}) => {
+      const message = rawMessage.trim();
+      if (!message || chatLoading) {
+        return;
+      }
+
+      const history = messages.map(({ role, content }) => ({ role, content }));
+      const userMessage: DashboardChatMessage = {
+        id: createChatMessageId("user"),
+        role: "user",
+        content: message,
+      };
+
+      setMessages((currentMessages) => [...currentMessages, userMessage]);
+      setChatInput("");
+      setChatError(null);
+      setVoiceError(null);
+      setChatLoading(true);
+
+      try {
+        const result = await sendAssistantMessage({ message, history });
+        setMessages((currentMessages) => [
+          ...currentMessages,
+          {
+            id: createChatMessageId("assistant"),
+            role: "assistant",
+            content: result.message,
+            steps: result.steps,
+          },
+        ]);
+
+        if (options.speakResponse) {
+          speakText(result.message);
+        }
+      } catch (error: unknown) {
+        setChatError(apiErrorMessage(error, "Assistant failed to respond"));
+      } finally {
+        setChatLoading(false);
+      }
+    },
+    [chatLoading, messages, speakText],
+  );
+
+  const startListening = useCallback(() => {
+    const SpeechRecognitionConstructor = getSpeechRecognitionConstructor();
+
+    if (!SpeechRecognitionConstructor) {
+      setVoiceError("Voice input is unavailable in this browser.");
+      return;
+    }
+
+    if (chatLoading) {
+      return;
+    }
+
+    stopSpeaking();
+    shouldSendVoiceTranscriptRef.current = false;
+    recognitionRef.current?.abort();
+
+    const recognition = new SpeechRecognitionConstructor();
+    let finalTranscript = "";
+    let latestTranscript = "";
+
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = "en-US";
+    shouldSendVoiceTranscriptRef.current = true;
+    recognition.onresult = (event) => {
+      let interimTranscript = "";
+
+      for (let index = 0; index < event.results.length; index += 1) {
+        const result = event.results[index] ?? event.results.item(index);
+        const transcript = result?.[0]?.transcript ?? "";
+
+        if (result?.isFinal) {
+          finalTranscript = `${finalTranscript} ${transcript}`.trim();
+        } else {
+          interimTranscript = `${interimTranscript} ${transcript}`.trim();
+        }
+      }
+
+      const visibleTranscript = `${finalTranscript} ${interimTranscript}`.trim();
+      latestTranscript = visibleTranscript;
+      setVoiceTranscript(visibleTranscript);
+
+      if (visibleTranscript) {
+        setChatInput(visibleTranscript);
+      }
+    };
+    recognition.onerror = (event) => {
+      shouldSendVoiceTranscriptRef.current = false;
+      setVoiceError(event.error ? `Voice error: ${event.error}` : "Voice input failed.");
+    };
+    recognition.onend = () => {
+      setListening(false);
+      recognitionRef.current = null;
+
+      const transcript = (finalTranscript || latestTranscript).trim();
+      if (shouldSendVoiceTranscriptRef.current && transcript) {
+        setVoiceTranscript("");
+        void sendChatMessage(transcript, { speakResponse: true });
+      }
+
+      shouldSendVoiceTranscriptRef.current = false;
     };
 
-    setMessages((currentMessages) => [...currentMessages, userMessage]);
-    setChatInput("");
-    setChatError(null);
-    setChatLoading(true);
+    recognitionRef.current = recognition;
+    setListening(true);
+    setVoiceTranscript("");
+    setVoiceError(null);
 
     try {
-      const result = await sendAssistantMessage({ message, history });
-      setMessages((currentMessages) => [
-        ...currentMessages,
-        {
-          id: createChatMessageId("assistant"),
-          role: "assistant",
-          content: result.message,
-          steps: result.steps,
-        },
-      ]);
-    } catch (error: unknown) {
-      setChatError(apiErrorMessage(error, "Assistant failed to respond"));
-    } finally {
-      setChatLoading(false);
+      recognition.start();
+    } catch {
+      shouldSendVoiceTranscriptRef.current = false;
+      recognitionRef.current = null;
+      setListening(false);
+      setVoiceError("Voice input could not start.");
     }
+  }, [chatLoading, sendChatMessage, stopSpeaking]);
+
+  const handleVoiceToggle = useCallback(() => {
+    if (listening) {
+      recognitionRef.current?.stop();
+      return;
+    }
+
+    startListening();
+  }, [listening, startListening]);
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void sendChatMessage(chatInput);
   }
 
   return (
@@ -701,6 +913,54 @@ function AssistantChatPanel() {
             Send
           </Button>
         </form>
+
+        <div className="flex flex-col gap-2 rounded-md border border-border bg-background p-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant={listening ? "destructive" : "outline"}
+              size="sm"
+              onClick={handleVoiceToggle}
+              disabled={!voiceInputSupported || chatLoading}
+              aria-pressed={listening}
+              className="rounded-md"
+            >
+              {listening ? (
+                <MicOff className="size-4" data-icon="inline-start" />
+              ) : (
+                <Mic className="size-4" data-icon="inline-start" />
+              )}
+              {listening ? "Stop voice" : "Voice"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={stopSpeaking}
+              disabled={!speaking}
+              className="rounded-md"
+            >
+              <VolumeX className="size-4" data-icon="inline-start" />
+              Stop audio
+            </Button>
+            {listening ? (
+              <span className="rounded-md border border-border bg-zap-canvas-soft px-2 py-1 text-[11px] font-medium text-zap-body">
+                Listening
+              </span>
+            ) : null}
+          </div>
+          {voiceTranscript ? (
+            <p className="rounded-md bg-zap-canvas-soft px-3 py-2 text-body-sm text-zap-body">
+              {voiceTranscript}
+            </p>
+          ) : null}
+          {voiceError ? (
+            <div className="flex items-center gap-2 text-body-sm text-destructive">
+              <XCircle className="size-4" />
+              {voiceError}
+            </div>
+          ) : null}
+        </div>
 
         {chatError ? (
           <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-body-sm text-destructive">
