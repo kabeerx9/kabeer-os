@@ -7,6 +7,7 @@ import { registerAssistantRoutes } from "./routes/assistant";
 import { registerCapabilitiesRoutes } from "./routes/capabilities";
 import { registerGitHubRoutes } from "./routes/github";
 import { registerMorningBriefRoutes } from "./routes/morning-brief";
+import { registerVoiceRoutes } from "./routes/voice";
 
 const baseCorsConfig = {
   origin: process.env.CORS_ORIGIN ?? "http://localhost:3001",
@@ -26,6 +27,7 @@ fastify.register(registerAssistantRoutes);
 fastify.register(registerCapabilitiesRoutes);
 fastify.register(registerGitHubRoutes);
 fastify.register(registerMorningBriefRoutes);
+fastify.register(registerVoiceRoutes);
 
 fastify.get("/", async () => {
   return "OK";

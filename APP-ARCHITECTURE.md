@@ -31,7 +31,7 @@ For now:
 - Backend generates a deterministic daily summary from normalized GitHub data.
 - Dashboard shows the summary, project-wise activity, new activity, and items that need attention.
 - Dashboard chat can ask the assistant GitHub questions through read-only capabilities.
-- Dashboard chat can also use browser voice input/output as a UI adapter over the same assistant route.
+- Dashboard chat can also use voice input/output as a UI adapter over the same assistant route.
 
 Later:
 
@@ -161,6 +161,7 @@ GET /api/morning-brief
 GET /api/capabilities
 GET /api/github/sync/latest
 POST /api/assistant/chat
+POST /api/voice/transcribe
 POST /api/github/sync
 POST /api/github/attention/sync
 POST /api/github/daily-summary
@@ -177,6 +178,8 @@ POST /api/github/daily-summary
 `POST /api/github/daily-summary` executes the internal `github.dailySummary.generate` capability. It does not call GitHub. It accepts the already-normalized sync snapshot and attention result, counts/ranks facts deterministically, and returns a typed headline, paragraph, project summaries, and attention counts.
 
 `POST /api/assistant/chat` runs the generic assistant loop. The current runtime model provider is OpenRouter behind `ModelProvider`. The assistant can only call allowlisted capabilities through the registry; it cannot run shell commands directly.
+
+`POST /api/voice/transcribe` accepts a short user-recorded browser audio clip as base64 JSON and returns transcript text. It does not store audio and does not call the assistant route by itself.
 
 Current assistant model config:
 
@@ -402,35 +405,59 @@ The assistant loop asks the model for one structured decision at a time, validat
 
 ## Voice Input And Output
 
-Current voice mode is browser-only and lives in the dashboard chat UI:
+Current voice mode lives in the dashboard chat UI and has two input paths:
 
 ```text
-Web Speech API transcript
+MediaRecorder audio
+  -> POST /api/voice/transcribe
+  -> VoiceTranscriptionProvider
+  -> transcript
   -> apps/web assistant chat panel
   -> POST /api/assistant/chat
   -> assistant response
   -> browser speechSynthesis
 ```
 
+Fallback path when browser recording is unavailable:
+
+```text
+Web Speech API transcript
+  -> apps/web assistant chat panel
+  -> POST /api/assistant/chat
+```
+
 Implemented file:
 
 ```text
 apps/web/src/routes/_auth/dashboard.tsx
+apps/server/src/routes/voice.ts
+apps/server/src/providers/voice-transcription.ts
 ```
 
 Current voice behavior:
 
-- Click `Voice` to start browser speech recognition.
-- Click `Stop voice` to stop recognition and send the transcript as a normal assistant message.
+- Click `Voice` to start a short browser audio recording.
+- Click `Stop voice` to stop recording, transcribe the clip on the server, and send the transcript as a normal assistant message.
 - Voice-mode responses are spoken with browser `speechSynthesis` when available.
 - Typed chat and voice chat both call the same `sendAssistantMessage` API client.
+- Browser `SpeechRecognition` remains only as fallback when `MediaRecorder` is unavailable.
+
+Current voice transcription provider:
+
+```text
+OPENAI_API_KEY=
+OPENAI_TRANSCRIPTION_MODEL=gpt-4o-mini-transcribe
+OPENAI_BASE_URL=https://api.openai.com/v1
+```
 
 Important limits:
 
 - No always-listening mode.
-- No audio is stored or sent to the backend.
+- Audio is sent to the backend only after the user records and stops a clip.
+- Audio is not stored.
 - Voice does not execute actions directly.
-- Browser support depends on `SpeechRecognition` or `webkitSpeechRecognition`.
+- Server transcription requires `OPENAI_API_KEY`.
+- Browser speech fallback support depends on `SpeechRecognition` or `webkitSpeechRecognition`.
 
 Future provider boundary:
 
@@ -538,10 +565,12 @@ apps/server/src/capabilities/registry.ts
 apps/server/src/routes/capabilities.ts
 apps/server/src/routes/github.ts
 apps/server/src/routes/assistant.ts
+apps/server/src/routes/voice.ts
 apps/server/src/routes/morning-brief.ts
 apps/server/src/providers/github.ts
 apps/server/src/providers/model.ts
 apps/server/src/providers/openrouter-model.ts
+apps/server/src/providers/voice-transcription.ts
 apps/server/src/services/assistant-orchestrator.ts
 apps/server/src/stores/github-sync-store.ts
 apps/server/src/services/morning-brief.ts
@@ -578,8 +607,9 @@ Done:
 - `POST /api/github/attention/sync`
 - `POST /api/github/daily-summary`
 - `POST /api/assistant/chat`
+- `POST /api/voice/transcribe`
 - dashboard chat panel using shadcn `MessageScroller`
-- dashboard assistant voice controls using browser speech recognition and `speechSynthesis`
+- dashboard assistant voice controls using browser recording, server transcription, browser speech recognition fallback, and `speechSynthesis`
 - dashboard reads `GET /api/github/sync/latest`
 - dashboard button calls `POST /api/github/sync`
 - dashboard renders deterministic daily summary from GitHub activity and attention data
@@ -590,7 +620,7 @@ Done:
 Next:
 
 - manually test dashboard chat with a real `OPENROUTER_API_KEY`
-- manually test browser voice mode in a browser with `SpeechRecognition` support
+- manually test voice mode with `OPENAI_API_KEY` configured
 - harden model provider timeouts/retries and error messages
 - add next GitHub read tools if needed, such as PR search or issue detail fetch
 

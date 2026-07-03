@@ -17,6 +17,8 @@ import {
   morningBriefSchema,
   updateAccountInputSchema,
   updateExampleProjectInputSchema,
+  voiceTranscriptionInputSchema,
+  voiceTranscriptionResultSchema,
   type AssistantChatInput,
   type AssistantChatResult,
   type AssistantMessage,
@@ -38,6 +40,8 @@ import {
   type RecommendedAction,
   type UpdateAccountInput,
   type UpdateExampleProjectInput,
+  type VoiceTranscriptionInput,
+  type VoiceTranscriptionResult,
   type WorkItem,
 } from "@app-starter/contracts";
 import { env } from "@app-starter/env/web";
@@ -66,6 +70,8 @@ export type {
   RecommendedAction,
   UpdateAccountInput,
   UpdateExampleProjectInput,
+  VoiceTranscriptionInput,
+  VoiceTranscriptionResult,
   WorkItem,
 };
 export { ApiError };
@@ -87,6 +93,14 @@ export function getMorningBrief() {
 export function sendAssistantMessage(input: AssistantChatInput) {
   const body = assistantChatInputSchema.parse(input);
   return api.requestJson("/api/assistant/chat", assistantChatResultSchema, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function transcribeVoice(input: VoiceTranscriptionInput) {
+  const body = voiceTranscriptionInputSchema.parse(input);
+  return api.requestJson("/api/voice/transcribe", voiceTranscriptionResultSchema, {
     method: "POST",
     body: JSON.stringify(body),
   });

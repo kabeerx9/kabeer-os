@@ -113,3 +113,9 @@ export {
   type WorkItemPriority,
   type WorkItemSource,
 } from "./morning-brief";
+export {
+  voiceTranscriptionInputSchema,
+  voiceTranscriptionResultSchema,
+  type VoiceTranscriptionInput,
+  type VoiceTranscriptionResult,
+} from "./voice";

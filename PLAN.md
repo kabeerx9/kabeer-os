@@ -371,7 +371,7 @@ For the first pass:
 
 Outcome: voice becomes an input, but nothing executes yet.
 
-Status: partially done. The dashboard assistant chat now has browser voice controls. It uses `SpeechRecognition`/`webkitSpeechRecognition` when available, displays the transcript, sends the transcript through the existing assistant chat route, and speaks voice-mode responses with browser `speechSynthesis`. This is still a UI adapter over chat, not the later full voice-intent/action approval system.
+Status: partially done. The dashboard assistant chat now has browser voice controls. It records short clips with `MediaRecorder`, transcribes them through `POST /api/voice/transcribe`, sends the transcript through the existing assistant chat route, and speaks voice-mode responses with browser `speechSynthesis`. It also keeps `SpeechRecognition`/`webkitSpeechRecognition` as fallback when recording is unavailable. This is still a UI adapter over chat, not the later full voice-intent/action approval system.
 
 ### Step 10: Add LLM Intent Routing
 

@@ -41,6 +41,7 @@ import {
   sendAssistantMessage,
   syncGitHub,
   syncGitHubAttention,
+  transcribeVoice,
   type AssistantMessage,
   type AssistantStep,
   type GitHubActivity,
@@ -388,6 +389,53 @@ function canUseSpeechSynthesis() {
   );
 }
 
+const recordingMimeTypeCandidates = [
+  "audio/webm;codecs=opus",
+  "audio/webm",
+  "audio/mp4",
+  "audio/ogg;codecs=opus",
+  "audio/wav",
+];
+
+function canUseMediaRecorder() {
+  return (
+    typeof navigator !== "undefined" &&
+    typeof navigator.mediaDevices?.getUserMedia === "function" &&
+    typeof MediaRecorder !== "undefined"
+  );
+}
+
+function getRecordingMimeType() {
+  if (typeof MediaRecorder === "undefined") {
+    return undefined;
+  }
+
+  return recordingMimeTypeCandidates.find((mimeType) =>
+    MediaRecorder.isTypeSupported(mimeType),
+  );
+}
+
+function stopMediaRecorderStream(mediaRecorder: MediaRecorder | null) {
+  mediaRecorder?.stream.getTracks().forEach((track) => track.stop());
+}
+
+function blobToBase64(blob: Blob) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onloadend = () => {
+      if (typeof reader.result !== "string") {
+        reject(new Error("Voice audio could not be read."));
+        return;
+      }
+
+      resolve(reader.result.split(",", 2)[1] ?? "");
+    };
+    reader.onerror = () => reject(new Error("Voice audio could not be read."));
+    reader.readAsDataURL(blob);
+  });
+}
+
 function DashboardPage() {
   const [syncSnapshot, setSyncSnapshot] = useState<GitHubSyncSnapshot | null>(null);
   const [syncSnapshotLoading, setSyncSnapshotLoading] = useState(true);
@@ -668,19 +716,33 @@ function AssistantChatPanel() {
   const [voiceInputSupported, setVoiceInputSupported] = useState(false);
   const [voiceOutputSupported, setVoiceOutputSupported] = useState(false);
   const [listening, setListening] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [transcribingVoice, setTranscribingVoice] = useState(false);
   const [voiceTranscript, setVoiceTranscript] = useState("");
   const [voiceError, setVoiceError] = useState<string | null>(null);
   const [speaking, setSpeaking] = useState(false);
   const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordedChunksRef = useRef<Blob[]>([]);
   const shouldSendVoiceTranscriptRef = useRef(false);
+  const shouldSendRecordedVoiceRef = useRef(false);
 
   useEffect(() => {
-    setVoiceInputSupported(getSpeechRecognitionConstructor() !== null);
+    setVoiceInputSupported(
+      canUseMediaRecorder() || getSpeechRecognitionConstructor() !== null,
+    );
     setVoiceOutputSupported(canUseSpeechSynthesis());
 
     return () => {
       shouldSendVoiceTranscriptRef.current = false;
+      shouldSendRecordedVoiceRef.current = false;
       recognitionRef.current?.abort();
+
+      const mediaRecorder = mediaRecorderRef.current;
+      if (mediaRecorder && mediaRecorder.state !== "inactive") {
+        mediaRecorder.stop();
+      }
+      stopMediaRecorderStream(mediaRecorder);
 
       if (typeof window !== "undefined" && "speechSynthesis" in window) {
         window.speechSynthesis.cancel();
@@ -808,7 +870,13 @@ function AssistantChatPanel() {
     };
     recognition.onerror = (event) => {
       shouldSendVoiceTranscriptRef.current = false;
-      setVoiceError(event.error ? `Voice error: ${event.error}` : "Voice input failed.");
+      setVoiceError(
+        event.error === "network"
+          ? "Browser speech service failed. Server recording is the preferred voice path."
+          : event.error
+            ? `Voice error: ${event.error}`
+            : "Voice input failed.",
+      );
     };
     recognition.onend = () => {
       setListening(false);
@@ -838,14 +906,141 @@ function AssistantChatPanel() {
     }
   }, [chatLoading, sendChatMessage, stopSpeaking]);
 
+  const transcribeRecordedVoice = useCallback(
+    async (audioBlob: Blob) => {
+      setTranscribingVoice(true);
+      setVoiceTranscript("Transcribing voice...");
+      setVoiceError(null);
+
+      try {
+        const audioBase64 = await blobToBase64(audioBlob);
+        const result = await transcribeVoice({
+          audioBase64,
+          mimeType: audioBlob.type || "audio/webm",
+        });
+        const transcript = result.text.trim();
+
+        if (!transcript) {
+          setVoiceError("No speech found in that recording.");
+          return;
+        }
+
+        setVoiceTranscript(transcript);
+        setChatInput(transcript);
+        await sendChatMessage(transcript, { speakResponse: true });
+      } catch (error: unknown) {
+        setVoiceError(apiErrorMessage(error, "Voice transcription failed."));
+      } finally {
+        setTranscribingVoice(false);
+      }
+    },
+    [sendChatMessage],
+  );
+
+  const startVoiceRecording = useCallback(async () => {
+    if (!canUseMediaRecorder()) {
+      startListening();
+      return;
+    }
+
+    if (chatLoading || transcribingVoice) {
+      return;
+    }
+
+    stopSpeaking();
+    shouldSendVoiceTranscriptRef.current = false;
+    recognitionRef.current?.abort();
+    let stream: MediaStream | null = null;
+
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = getRecordingMimeType();
+      const mediaRecorder = new MediaRecorder(
+        stream,
+        mimeType ? { mimeType } : undefined,
+      );
+
+      recordedChunksRef.current = [];
+      shouldSendRecordedVoiceRef.current = true;
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          recordedChunksRef.current.push(event.data);
+        }
+      };
+      mediaRecorder.onerror = () => {
+        shouldSendRecordedVoiceRef.current = false;
+        recordedChunksRef.current = [];
+        mediaRecorderRef.current = null;
+        setRecording(false);
+        stopMediaRecorderStream(mediaRecorder);
+        setVoiceError("Voice recording failed.");
+      };
+      mediaRecorder.onstop = () => {
+        const shouldSend = shouldSendRecordedVoiceRef.current;
+        const chunks = recordedChunksRef.current;
+
+        shouldSendRecordedVoiceRef.current = false;
+        recordedChunksRef.current = [];
+        mediaRecorderRef.current = null;
+        setRecording(false);
+        stopMediaRecorderStream(mediaRecorder);
+
+        if (!shouldSend) {
+          return;
+        }
+
+        if (chunks.length === 0) {
+          setVoiceError("No voice audio captured.");
+          return;
+        }
+
+        const audioBlob = new Blob(chunks, {
+          type: mediaRecorder.mimeType || mimeType || "audio/webm",
+        });
+        void transcribeRecordedVoice(audioBlob);
+      };
+
+      mediaRecorderRef.current = mediaRecorder;
+      setRecording(true);
+      setVoiceTranscript("");
+      setVoiceError(null);
+      mediaRecorder.start();
+    } catch (error: unknown) {
+      shouldSendRecordedVoiceRef.current = false;
+      mediaRecorderRef.current = null;
+      setRecording(false);
+      stream?.getTracks().forEach((track) => track.stop());
+      setVoiceError(
+        error instanceof DOMException && error.name === "NotAllowedError"
+          ? "Microphone permission was denied."
+          : "Microphone could not start.",
+      );
+    }
+  }, [
+    chatLoading,
+    startListening,
+    stopSpeaking,
+    transcribeRecordedVoice,
+    transcribingVoice,
+  ]);
+
   const handleVoiceToggle = useCallback(() => {
+    if (recording) {
+      const mediaRecorder = mediaRecorderRef.current;
+
+      if (mediaRecorder && mediaRecorder.state !== "inactive") {
+        mediaRecorder.stop();
+      }
+      return;
+    }
+
     if (listening) {
       recognitionRef.current?.stop();
       return;
     }
 
-    startListening();
-  }, [listening, startListening]);
+    void startVoiceRecording();
+  }, [listening, recording, startVoiceRecording]);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -918,19 +1113,25 @@ function AssistantChatPanel() {
           <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
-              variant={listening ? "destructive" : "outline"}
+              variant={listening || recording ? "destructive" : "outline"}
               size="sm"
               onClick={handleVoiceToggle}
-              disabled={!voiceInputSupported || chatLoading}
-              aria-pressed={listening}
+              disabled={!voiceInputSupported || chatLoading || transcribingVoice}
+              aria-pressed={listening || recording}
               className="rounded-md"
             >
-              {listening ? (
+              {listening || recording ? (
                 <MicOff className="size-4" data-icon="inline-start" />
+              ) : transcribingVoice ? (
+                <RefreshCw className="size-4 animate-spin" data-icon="inline-start" />
               ) : (
                 <Mic className="size-4" data-icon="inline-start" />
               )}
-              {listening ? "Stop voice" : "Voice"}
+              {transcribingVoice
+                ? "Transcribing"
+                : listening || recording
+                  ? "Stop voice"
+                  : "Voice"}
             </Button>
             <Button
               type="button"
@@ -943,9 +1144,9 @@ function AssistantChatPanel() {
               <VolumeX className="size-4" data-icon="inline-start" />
               Stop audio
             </Button>
-            {listening ? (
+            {recording || listening || transcribingVoice ? (
               <span className="rounded-md border border-border bg-zap-canvas-soft px-2 py-1 text-[11px] font-medium text-zap-body">
-                Listening
+                {transcribingVoice ? "Transcribing" : recording ? "Recording" : "Listening"}
               </span>
             ) : null}
           </div>

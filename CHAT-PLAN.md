@@ -72,7 +72,7 @@ apps/web chat panel
 
 The orchestrator is generic. GitHub is only the first tool pack.
 
-Browser voice mode is a UI adapter over this same route. It should produce a normal user message and consume a normal assistant response; it should not create a separate execution path.
+Browser voice mode is a UI adapter over this same route. It should produce a normal user message and consume a normal assistant response; it should not create a separate execution path. Server transcription may turn recorded audio into text before the assistant route runs.
 
 Future shape:
 
@@ -513,13 +513,15 @@ Exit criteria:
 
 Goal: make the existing chat loop usable through a small push-to-talk browser voice flow.
 
-Status: done. The dashboard assistant panel can start browser speech recognition, send the transcript through the same `POST /api/assistant/chat` route, and speak voice-mode responses with browser `speechSynthesis` when available.
+Status: done. The dashboard assistant panel can record a short browser audio clip, transcribe it through `POST /api/voice/transcribe`, send the transcript through the same `POST /api/assistant/chat` route, and speak voice-mode responses with browser `speechSynthesis` when available. Browser speech recognition remains as fallback when recording is unavailable.
 
 Tasks:
 
-- Add browser speech recognition detection.
+- Add browser recording and speech recognition detection.
+- Add `VoiceTranscriptionProvider`.
+- Add `POST /api/voice/transcribe`.
 - Add voice start/stop controls to the assistant panel.
-- Show interim/final transcript while listening.
+- Show recording/transcribing/transcript state.
 - Send the transcript as a normal chat message.
 - Speak the assistant response for voice-originated messages.
 - Keep typed chat and voice chat on the same API route.
@@ -528,7 +530,7 @@ Exit criteria:
 
 - The user can click voice, ask a GitHub question, stop voice, and get a spoken assistant answer.
 - Voice does not bypass the assistant orchestrator, capability registry, or approval model.
-- No raw audio is stored or sent to the backend.
+- Audio is sent to the backend only for explicit user-recorded clips and is not stored.
 
 ### Phase 4: Model Provider Hardening
 
