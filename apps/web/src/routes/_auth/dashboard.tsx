@@ -1,4 +1,4 @@
-import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 
 import { Button, buttonVariants } from "@app-starter/ui/components/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@app-starter/ui/components/card";
@@ -14,18 +14,24 @@ import { createFileRoute } from "@tanstack/react-router";
 import {
   AtSign,
   Bot,
+  CalendarClock,
   ChevronDown,
+  CheckCircle2,
   CircleDot,
+  Clock3,
   ExternalLink,
   GitBranch,
   GitCommit,
   GitPullRequest,
   GitGraph,
+  Inbox,
+  ListChecks,
   MessageSquare,
   RefreshCw,
   SendHorizontal,
   Sparkles,
   Tag,
+  Target,
   UserRound,
   XCircle,
   Zap,
@@ -434,95 +440,31 @@ function DashboardPage() {
   ]);
 
   return (
-    <div className="min-h-screen bg-background pb-12">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 p-4 sm:p-6 lg:p-8">
-        <header className="flex flex-col gap-4 border-b border-border bg-background py-6 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-4">
-            <div className="flex size-12 items-center justify-center rounded-md bg-zap-canvas-soft text-zap-primary">
-              <Zap className="size-6" />
+    <div className="min-h-full bg-background pb-6">
+      <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-4 px-3 py-4 sm:px-5 lg:px-6">
+        <header className="flex flex-col gap-4 rounded-md border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
+              <Zap className="size-5" />
             </div>
-            <div>
-              <p className="text-eyebrow text-zap-primary">30-Second Morning</p>
-              <h1 className="text-display-sub-sm text-zap-ink">Good morning, Kabeer</h1>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-normal text-primary">
+                30-Second Morning
+              </p>
+              <h1 className="truncate text-2xl font-semibold tracking-normal text-foreground">
+                Good morning, Kabeer
+              </h1>
             </div>
           </div>
-          <Button 
-            onClick={() => void handleGitHubSync()} 
+          <Button
+            onClick={() => void handleGitHubSync()}
             disabled={syncing}
-            className="rounded-md bg-primary text-zap-on-primary text-body-sm-strong hover:bg-primary/90 shadow-none px-6 py-2 h-auto"
+            className="h-10 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-none hover:bg-primary/90"
           >
             <RefreshCw className={syncing ? "animate-spin" : undefined} data-icon="inline-start" />
             {syncing ? "Syncing workspace" : "Sync GitHub"}
           </Button>
         </header>
-
-        <div className="grid gap-6 md:grid-cols-3">
-          <Card className="card-content">
-            <CardHeader className="pb-2 p-0 mb-4">
-              <CardTitle className="flex items-center gap-2 text-body-sm-strong text-zap-ink">
-                <GitGraph className="size-4 text-zap-body" />
-                GitHub Activity
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <p className="text-display-md text-zap-ink">{githubCount}</p>
-              <p className="mt-1 text-body-sm text-zap-body">
-                {syncResult
-                  ? `Across ${pluralize(githubProjectCount, "project")}`
-                  : "Sync to load activity"}
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="card-content">
-            <CardHeader className="pb-2 p-0 mb-4">
-              <CardTitle className="flex items-center gap-2 text-body-sm-strong text-zap-ink">
-                <Sparkles className="size-4 text-zap-body" />
-                New Items
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <p className="text-display-md text-zap-ink">{newActivityCount}</p>
-              <p className="mt-1 text-body-sm text-zap-body">
-                {syncResult ? "Since previous sync" : "After first sync"}
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="card-feature-dark">
-            <CardHeader className="pb-2 p-0 mb-4">
-              <CardTitle className="flex items-center gap-2 text-body-sm-strong text-zap-on-primary">
-                <CircleDot className="size-4 text-zap-mute" />
-                Attention Required
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <p className="text-display-md text-zap-primary">{attentionCount}</p>
-              <p className="mt-1 text-body-sm text-zap-on-primary">Open items</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        <Card className="card-content border border-border p-0">
-          <CardHeader className="border-b border-border bg-zap-canvas-soft p-6">
-            <CardTitle className="flex items-center gap-2 text-display-sub-sm text-zap-ink">
-              <Sparkles className="size-5 text-zap-primary" />
-              Daily Summary
-            </CardTitle>
-            <p className="text-body-sm text-zap-body">
-              Deterministic summary from GitHub activity and attention signals
-            </p>
-          </CardHeader>
-          <CardContent className="p-6">
-            {summaryLoading ? (
-              <LoadingState label="Generating summary..." />
-            ) : dailySummary ? (
-              <DailySummaryPanel summary={dailySummary} />
-            ) : (
-              <EmptyState label="No summary generated yet." />
-            )}
-          </CardContent>
-        </Card>
-
-        <AssistantChatPanel />
 
         {syncError ? (
           <StatusPanel
@@ -552,35 +494,95 @@ function DashboardPage() {
           />
         ) : null}
 
-        <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(340px,0.75fr)]">
-          <Card className="card-content p-0 border border-border">
-            <CardHeader className="border-b border-border bg-zap-canvas-soft p-6">
-              <CardTitle className="text-display-sub-sm text-zap-ink">Activity Feed</CardTitle>
-              <p className="text-body-sm text-zap-body">
-                {syncWindow ?? "Last 24 hours after sync"}
-              </p>
-            </CardHeader>
-            <CardContent className="p-0 pt-0">
-              {syncing ? (
-                <LoadingState label="Syncing GitHub activity..." />
-              ) : syncSnapshotLoading ? (
-                <LoadingState label="Loading saved GitHub activity..." />
-              ) : syncResult ? (
-                <GitHubActivityList
-                  activities={syncResult.activities}
-                  newActivityIds={newActivityIds}
-                />
-              ) : (
-                <EmptyState label="No GitHub sync yet." />
-              )}
-            </CardContent>
-          </Card>
+        <section className="grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)_minmax(340px,0.86fr)]">
+          <MorningBriefPanel
+            githubCount={githubCount}
+            githubProjectCount={githubProjectCount}
+            newActivityCount={newActivityCount}
+            attentionCount={attentionCount}
+          />
 
-          <Card className="card-content p-0 border border-border h-fit">
-            <CardHeader className="border-b border-border bg-zap-canvas-soft p-6">
-              <CardTitle className="text-display-sub-sm text-zap-ink">Needs Attention</CardTitle>
+          <div className="flex min-w-0 flex-col gap-4">
+            <div className="grid gap-4 md:grid-cols-3">
+              <DashboardMetricCard
+                icon={<GitGraph className="size-4" />}
+                label="Activity"
+                value={githubCount}
+                detail={syncResult ? `Across ${pluralize(githubProjectCount, "project")}` : "Sync to load"}
+              />
+              <DashboardMetricCard
+                icon={<Sparkles className="size-4" />}
+                label="New"
+                value={newActivityCount}
+                detail={syncResult ? "Since previous sync" : "After first sync"}
+              />
+              <DashboardMetricCard
+                icon={<CircleDot className="size-4" />}
+                label="Attention"
+                value={attentionCount}
+                detail="Open items"
+                tone="attention"
+              />
+            </div>
+
+            <Card className="operator-panel p-0">
+              <CardHeader className="border-b border-border bg-muted/45 p-5">
+                <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
+                  <Sparkles className="size-4 text-primary" />
+                  Daily Summary
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Deterministic summary from GitHub activity and attention signals
+                </p>
+              </CardHeader>
+              <CardContent className="p-5">
+                {summaryLoading ? (
+                  <LoadingState label="Generating summary..." />
+                ) : dailySummary ? (
+                  <DailySummaryPanel summary={dailySummary} />
+                ) : (
+                  <EmptyState label="No summary generated yet." />
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="operator-panel p-0">
+              <CardHeader className="border-b border-border bg-muted/45 p-5">
+                <CardTitle className="text-lg font-semibold text-foreground">Activity</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  {syncWindow ?? "Last 24 hours after sync"}
+                </p>
+              </CardHeader>
+              <CardContent className="p-0">
+                {syncing ? (
+                  <LoadingState label="Syncing GitHub activity..." />
+                ) : syncSnapshotLoading ? (
+                  <LoadingState label="Loading saved GitHub activity..." />
+                ) : syncResult ? (
+                  <GitHubActivityList
+                    activities={syncResult.activities}
+                    newActivityIds={newActivityIds}
+                  />
+                ) : (
+                  <EmptyState label="No GitHub sync yet." />
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card className="operator-panel h-fit p-0">
+            <CardHeader className="border-b border-border bg-muted/45 p-5">
+              <div className="flex items-center justify-between gap-3">
+                <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
+                  <Inbox className="size-4 text-primary" />
+                  Attention
+                </CardTitle>
+                <span className="status-chip border-primary/25 bg-primary/10 text-primary">
+                  {attentionCount} open
+                </span>
+              </div>
             </CardHeader>
-            <CardContent className="p-0 pt-0">
+            <CardContent className="p-0">
               {attentionLoading ? (
                 <LoadingState label="Syncing attention..." />
               ) : attentionResult?.items.length ? (
@@ -591,7 +593,130 @@ function DashboardPage() {
             </CardContent>
           </Card>
         </section>
+
+        <AssistantChatPanel />
       </div>
+    </div>
+  );
+}
+
+function MorningBriefPanel({
+  githubCount,
+  githubProjectCount,
+  newActivityCount,
+  attentionCount,
+}: {
+  githubCount: number;
+  githubProjectCount: number;
+  newActivityCount: number;
+  attentionCount: number;
+}) {
+  const briefItems = [
+    {
+      label: "Today's priorities",
+      detail: newActivityCount ? "New work needs sorting" : "Focus on key outcomes",
+      value: Math.max(newActivityCount, attentionCount),
+      icon: Target,
+    },
+    {
+      label: "Tracked projects",
+      detail: githubProjectCount ? "Repositories with movement" : "Sync to populate projects",
+      value: githubProjectCount,
+      icon: CalendarClock,
+    },
+    {
+      label: "Attention required",
+      detail: "Reviews, mentions, assignments",
+      value: attentionCount,
+      icon: CircleDot,
+    },
+    {
+      label: "Waiting for you",
+      detail: "Updates and approvals",
+      value: newActivityCount,
+      icon: Clock3,
+    },
+    {
+      label: "Activity captured",
+      detail: "Signals in the sync window",
+      value: githubCount,
+      icon: CheckCircle2,
+    },
+  ];
+
+  return (
+    <aside className="operator-panel h-fit p-5">
+      <div className="flex items-start justify-between gap-3 border-b border-border pb-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <Sparkles className="size-4 text-primary" />
+            <h2 className="text-lg font-semibold text-foreground">Morning Brief</h2>
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">Your operator queue for today</p>
+        </div>
+        <button
+          className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground"
+          aria-label="Brief controls"
+        >
+          <ListChecks className="size-4" />
+        </button>
+      </div>
+
+      <div className="py-5">
+        <p className="text-base font-semibold text-foreground">Good morning, Kabeer.</p>
+        <p className="mt-1 text-sm text-muted-foreground">Here's what's happening today.</p>
+      </div>
+
+      <ul className="flex flex-col divide-y divide-border">
+        {briefItems.map((item) => {
+          const Icon = item.icon;
+
+          return (
+            <li key={item.label} className="flex items-center gap-3 py-3">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-md border border-border bg-background text-primary">
+                <Icon className="size-4" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold text-foreground">{item.label}</span>
+                <span className="block truncate text-xs text-muted-foreground">{item.detail}</span>
+              </span>
+              <span className="text-sm font-semibold text-foreground">{item.value}</span>
+            </li>
+          );
+        })}
+      </ul>
+    </aside>
+  );
+}
+
+function DashboardMetricCard({
+  icon,
+  label,
+  value,
+  detail,
+  tone = "default",
+}: {
+  icon: ReactNode;
+  label: string;
+  value: number;
+  detail: string;
+  tone?: "default" | "attention";
+}) {
+  const iconClassName =
+    tone === "attention"
+      ? "bg-primary/10 text-primary"
+      : "bg-signal-blue-soft text-signal-blue dark:bg-accent dark:text-accent-foreground";
+
+  return (
+    <div className="operator-panel p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className={`flex size-9 items-center justify-center rounded-md ${iconClassName}`}>
+          {icon}
+        </div>
+        <span className="text-3xl font-semibold leading-none text-foreground">{value}</span>
+      </div>
+      <p className="mt-4 text-sm font-semibold text-foreground">{label}</p>
+      <p className="mt-1 truncate text-sm text-muted-foreground">{detail}</p>
     </div>
   );
 }
@@ -641,16 +766,34 @@ function AssistantChatPanel() {
   }
 
   return (
-    <Card className="card-content border border-border p-0">
-      <CardHeader className="border-b border-border bg-zap-canvas-soft p-6">
-        <CardTitle className="flex items-center gap-2 text-display-sub-sm text-zap-ink">
-          <Bot className="size-5 text-zap-primary" />
-          Assistant
-        </CardTitle>
+    <Card className="operator-panel p-0">
+      <CardHeader className="border-b border-border bg-muted/45 p-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
+              <Bot className="size-4 text-primary" />
+              Assistant
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">Ready to help</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {["Summarize my day", "Reschedule conflicts", "Draft investor update"].map(
+              (action) => (
+                <button
+                  key={action}
+                  type="button"
+                  className="h-8 rounded-md border border-border bg-card px-3 text-xs font-medium text-foreground transition hover:border-primary/50"
+                >
+                  {action}
+                </button>
+              ),
+            )}
+          </div>
+        </div>
       </CardHeader>
-      <CardContent className="flex flex-col gap-4 p-6">
+      <CardContent className="flex flex-col gap-3 p-4">
         <MessageScrollerProvider autoScroll defaultScrollPosition="end" scrollPreviousItemPeek={64}>
-          <MessageScroller className="h-[360px] rounded-md border border-border bg-background">
+          <MessageScroller className="h-[240px] rounded-md border border-border bg-background">
             <MessageScrollerViewport>
               <MessageScrollerContent>
                 {messages.length === 0 ? (
@@ -670,7 +813,7 @@ function AssistantChatPanel() {
                 {chatLoading ? (
                   <MessageScrollerItem messageId="assistant-loading">
                     <div className="flex justify-start">
-                      <div className="flex max-w-[85%] items-center gap-2 rounded-md border border-border bg-zap-canvas-soft px-3 py-2 text-body-sm text-zap-body">
+                      <div className="flex max-w-[85%] items-center gap-2 rounded-md border border-border bg-muted px-3 py-2 text-sm text-muted-foreground">
                         <RefreshCw className="size-3.5 animate-spin" />
                         Thinking
                       </div>
@@ -683,10 +826,10 @@ function AssistantChatPanel() {
           </MessageScroller>
         </MessageScrollerProvider>
 
-        <form className="flex flex-col gap-3 sm:flex-row" onSubmit={handleSubmit}>
+        <form className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]" onSubmit={handleSubmit}>
           <textarea
             aria-label="Assistant message"
-            className="min-h-20 flex-1 resize-none rounded-md border border-border bg-background px-3 py-2 text-body-sm text-zap-ink outline-none transition focus-visible:ring-1 focus-visible:ring-ring/50"
+            className="min-h-12 resize-none rounded-md border border-border bg-background px-3 py-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring/50"
             placeholder="Message Kabeer OS"
             value={chatInput}
             onChange={(event) => setChatInput(event.currentTarget.value)}
@@ -695,7 +838,7 @@ function AssistantChatPanel() {
           <Button
             type="submit"
             disabled={chatLoading || chatInput.trim().length === 0}
-            className="h-10 rounded-md bg-primary px-4 text-zap-on-primary shadow-none hover:bg-primary/90 sm:h-auto"
+            className="h-12 rounded-md bg-primary px-4 text-primary-foreground shadow-none hover:bg-primary/90"
           >
             <SendHorizontal className="size-4" data-icon="inline-start" />
             Send
@@ -703,7 +846,7 @@ function AssistantChatPanel() {
         </form>
 
         {chatError ? (
-          <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-body-sm text-destructive">
+          <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
             <XCircle className="size-4" />
             {chatError}
           </div>
@@ -716,7 +859,7 @@ function AssistantChatPanel() {
 function AssistantEmptyMessage() {
   return (
     <div className="flex justify-start">
-      <div className="max-w-[85%] rounded-md border border-border bg-zap-canvas-soft px-3 py-2 text-body-sm text-zap-body">
+      <div className="max-w-[85%] rounded-md border border-border bg-muted px-3 py-2 text-sm text-muted-foreground">
         What do you want to check?
       </div>
     </div>
@@ -733,8 +876,8 @@ function AssistantMessageBubble({ message }: { message: DashboardChatMessage }) 
       <div
         className={
           isUser
-            ? "max-w-[85%] rounded-md bg-primary px-3 py-2 text-body-sm text-zap-on-primary"
-            : "max-w-[85%] rounded-md border border-border bg-zap-canvas-soft px-3 py-2 text-body-sm text-zap-ink"
+            ? "max-w-[85%] rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground"
+            : "max-w-[85%] rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground"
         }
       >
         <p className="whitespace-pre-wrap break-words">{message.content}</p>
@@ -744,7 +887,7 @@ function AssistantMessageBubble({ message }: { message: DashboardChatMessage }) 
               step.decision.type === "call_capability" ? (
                 <span
                   key={`${message.id}-${step.index}`}
-                  className="rounded-md border border-border bg-background px-2 py-0.5 text-[11px] text-zap-body"
+                  className="rounded-md border border-border bg-background px-2 py-0.5 text-[11px] text-muted-foreground"
                 >
                   {step.decision.capability}
                 </span>
@@ -767,7 +910,7 @@ function StatusPanel({
   onAction: () => void;
 }) {
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-3 rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-center gap-2 text-destructive">
         <XCircle className="size-4" />
         <p className="font-medium">{message}</p>
@@ -790,7 +933,7 @@ function LoadingState({ label }: { label: string }) {
 
 function EmptyState({ label }: { label: string }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/60 bg-muted/10 p-12 text-center text-muted-foreground">
+    <div className="flex flex-col items-center justify-center rounded-md border border-dashed border-border/60 bg-muted/10 p-12 text-center text-muted-foreground">
       <div className="mb-3 flex size-10 items-center justify-center rounded-full bg-muted">
         <Sparkles className="size-5" />
       </div>
@@ -803,14 +946,14 @@ function DailySummaryPanel({ summary }: { summary: GitHubDailySummaryResult }) {
   return (
     <div className="flex flex-col gap-5">
       <div>
-        <p className="text-display-sub-sm text-zap-ink">{summary.headline}</p>
-        <p className="mt-2 text-body-md text-zap-body">{summary.summary}</p>
+        <p className="text-lg font-semibold text-foreground">{summary.headline}</p>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">{summary.summary}</p>
       </div>
 
       {summary.bullets.length ? (
         <ul className="flex flex-col divide-y divide-border border-y border-border">
           {summary.bullets.map((bullet) => (
-            <li key={bullet} className="py-3 text-body-sm text-zap-ink">
+            <li key={bullet} className="py-3 text-sm leading-6 text-foreground">
               {bullet}
             </li>
           ))}
@@ -863,20 +1006,20 @@ function ProjectActivityGroupView({
   const [isExpanded, setIsExpanded] = useState(isDefaultExpanded || project.newActivityCount > 0);
 
   return (
-    <section className="mb-2 rounded-md border border-border bg-background shadow-sm overflow-hidden transition-all hover:shadow-md">
+    <section className="mb-2 overflow-hidden rounded-md border border-border bg-background transition-colors hover:border-primary/30">
       <div 
-        className="flex flex-col gap-3 border-b border-border bg-zap-canvas-soft p-6 sm:flex-row sm:items-center sm:justify-between cursor-pointer hover:bg-black/5 transition-colors"
+        className="flex cursor-pointer flex-col gap-3 border-b border-border bg-muted/45 p-5 transition-colors hover:bg-muted sm:flex-row sm:items-center sm:justify-between"
         onClick={() => setIsExpanded(!isExpanded)}
       >
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="break-words text-body-md-strong text-zap-ink">{project.repo}</p>
+            <p className="break-words text-sm font-semibold text-foreground">{project.repo}</p>
             {project.newActivityCount > 0 ? <NewBadge /> : null}
-            <span className="text-caption text-zap-mute">
+            <span className="text-xs text-muted-foreground">
               Latest {formatDateTime(project.latestAt)}
             </span>
           </div>
-          <p className="mt-1 break-words text-caption text-zap-body">{projectStats(project)}</p>
+          <p className="mt-1 break-words text-xs text-muted-foreground">{projectStats(project)}</p>
         </div>
         <div className="flex items-center gap-2">
           <a
@@ -887,9 +1030,9 @@ function ProjectActivityGroupView({
             aria-label={`Open ${project.repo} on GitHub`}
             onClick={(e) => e.stopPropagation()}
           >
-            <ExternalLink className="size-4 text-zap-body hover:text-zap-ink" />
+            <ExternalLink className="size-4 text-muted-foreground hover:text-foreground" />
           </a>
-          <button className="p-2 text-zap-body hover:text-zap-ink transition-colors">
+          <button className="p-2 text-muted-foreground transition-colors hover:text-foreground">
             <ChevronDown className={`size-5 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
           </button>
         </div>
@@ -898,15 +1041,15 @@ function ProjectActivityGroupView({
       {isExpanded && (
         <div className="flex flex-col gap-4 p-6">
           {project.sections.map((section) => (
-            <section key={section.key} className="rounded-md border border-border overflow-hidden">
-              <div className="flex items-center justify-between gap-3 bg-zap-canvas-soft px-6 py-3 border-b border-border">
+            <section key={section.key} className="overflow-hidden rounded-md border border-border">
+              <div className="flex items-center justify-between gap-3 border-b border-border bg-muted/45 px-5 py-3">
                 <div className="flex items-center gap-2">
-                  <p className="text-eyebrow text-zap-ink">
+                  <p className="text-xs font-semibold uppercase tracking-normal text-foreground">
                     {section.label}
                   </p>
                   {section.newActivityCount > 0 ? <NewBadge /> : null}
                 </div>
-                <span className="text-caption text-zap-mute">
+                <span className="text-xs text-muted-foreground">
                   {pluralize(section.activities.length, "item")}
                 </span>
               </div>
@@ -937,31 +1080,31 @@ function ProjectActivityRow({
   const commits = activity.type === "push" ? getPushCommits(activity) : [];
 
   return (
-    <li className="px-6 py-4 hover:bg-zap-canvas-soft border-b border-border last:border-b-0 transition-colors">
+    <li className="border-b border-border px-5 py-4 transition-colors last:border-b-0 hover:bg-muted/55">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex min-w-0 gap-4">
-          <div className="mt-0.5 flex size-8 items-center justify-center rounded-md bg-zap-canvas-soft text-zap-ink border border-border">
+          <div className="mt-0.5 flex size-8 items-center justify-center rounded-md border border-border bg-background text-foreground">
             <ActivityTypeIcon type={activity.type} />
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-md bg-border/20 px-2 py-0.5 text-[11px] font-medium text-zap-ink">
+              <span className="rounded-md bg-muted px-2 py-0.5 text-[11px] font-medium text-foreground">
                 {activityLabels[activity.type]}
               </span>
               {isNew ? <NewBadge /> : null}
-              <span className="text-caption text-zap-mute">
+              <span className="text-xs text-muted-foreground">
                 {formatDateTime(activity.createdAt)}
               </span>
             </div>
-            <p className="mt-2 break-words text-body-sm-strong text-zap-ink">{activity.title}</p>
-            <p className="mt-1 break-words text-body-sm text-zap-body">{activity.summary}</p>
+            <p className="mt-2 break-words text-sm font-semibold text-foreground">{activity.title}</p>
+            <p className="mt-1 break-words text-sm leading-6 text-muted-foreground">{activity.summary}</p>
             {commits.length ? <CommitList commits={commits} /> : null}
           </div>
         </div>
 
         {activity.url ? (
           <a
-            className={buttonVariants({ variant: "ghost", size: "icon-xs", className: "shrink-0 opacity-50 transition-opacity hover:opacity-100 text-zap-body hover:text-zap-ink" })}
+            className={buttonVariants({ variant: "ghost", size: "icon-xs", className: "shrink-0 opacity-50 transition-opacity hover:opacity-100 text-muted-foreground hover:text-foreground" })}
             href={activity.url}
             target="_blank"
             rel="noreferrer"
@@ -976,7 +1119,11 @@ function ProjectActivityRow({
 }
 
 function NewBadge() {
-  return <span className="animate-pulse rounded-full border border-primary/50 bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">New</span>;
+  return (
+    <span className="rounded-md border border-primary/40 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-normal text-primary">
+      New
+    </span>
+  );
 }
 
 function ActivityTypeIcon({ type }: { type: GitHubActivity["type"] }) {
@@ -1062,20 +1209,20 @@ function AttentionGroupView({ repo, items, isDefaultExpanded }: { repo: string; 
   const [isExpanded, setIsExpanded] = useState(isDefaultExpanded);
 
   return (
-    <section className="mb-2 rounded-md border border-border bg-background shadow-sm overflow-hidden transition-all hover:shadow-md">
+    <section className="mb-2 overflow-hidden rounded-md border border-border bg-background transition-colors hover:border-primary/30">
       <div 
-        className="flex items-center justify-between gap-3 bg-zap-canvas-soft px-6 py-4 border-b border-border cursor-pointer hover:bg-black/5 transition-colors"
+        className="flex cursor-pointer items-center justify-between gap-3 border-b border-border bg-muted/45 px-5 py-4 transition-colors hover:bg-muted"
         onClick={() => setIsExpanded(!isExpanded)}
       >
         <div className="flex items-center gap-2">
-          <p className="text-body-md-strong text-zap-ink">
+          <p className="text-sm font-semibold text-foreground">
             {repo}
           </p>
-          <span className="text-caption text-zap-primary font-medium">
+          <span className="text-xs font-medium text-primary">
             {pluralize(items.length, "item")}
           </span>
         </div>
-        <button className="p-2 text-zap-body hover:text-zap-ink transition-colors">
+        <button className="p-2 text-muted-foreground transition-colors hover:text-foreground">
           <ChevronDown className={`size-5 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
         </button>
       </div>
@@ -1083,21 +1230,21 @@ function AttentionGroupView({ repo, items, isDefaultExpanded }: { repo: string; 
       {isExpanded && (
         <ul className="flex flex-col">
           {items.map((item) => (
-            <li key={item.id} className="flex gap-4 p-6 hover:bg-zap-canvas-soft border-b border-border last:border-b-0 transition-colors">
-              <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md bg-zap-canvas-soft border border-border text-zap-ink">
+            <li key={item.id} className="flex gap-4 border-b border-border p-5 transition-colors last:border-b-0 hover:bg-muted/55">
+              <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md border border-border bg-background text-foreground">
                 <AttentionIcon kind={item.kind} />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-md bg-border/20 px-2 py-0.5 text-[11px] font-medium text-zap-ink">
+                  <span className="rounded-md bg-muted px-2 py-0.5 text-[11px] font-medium text-foreground">
                     {attentionKindLabels[item.kind]}
                   </span>
                 </div>
-                <p className="mt-2 break-words text-body-sm-strong text-zap-ink">{item.title}</p>
-                <p className="mt-1 break-words text-body-sm text-zap-body">{item.summary}</p>
+                <p className="mt-2 break-words text-sm font-semibold text-foreground">{item.title}</p>
+                <p className="mt-1 break-words text-sm leading-6 text-muted-foreground">{item.summary}</p>
               </div>
               <a
-                className={buttonVariants({ variant: "ghost", size: "icon-xs", className: "shrink-0 opacity-50 transition-opacity hover:opacity-100 text-zap-body hover:text-zap-ink" })}
+                className={buttonVariants({ variant: "ghost", size: "icon-xs", className: "shrink-0 opacity-50 transition-opacity hover:opacity-100 text-muted-foreground hover:text-foreground" })}
                 href={item.url}
                 target="_blank"
                 rel="noreferrer"

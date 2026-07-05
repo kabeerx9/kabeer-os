@@ -1,6 +1,5 @@
 import { Toaster } from "@app-starter/ui/components/sonner";
 import { HeadContent, Outlet, createRootRouteWithContext } from "@tanstack/react-router";
-import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 
 import Header from "@/components/header";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -14,11 +13,11 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
   head: () => ({
     meta: [
       {
-        title: "App Starter",
+        title: "Kabeer OS",
       },
       {
         name: "description",
-        content: "A fullstack TypeScript application starter",
+        content: "Personal operator dashboard for attention, activity, and assisted action",
       },
     ],
     links: [
@@ -37,17 +36,16 @@ function RootComponent() {
       <HeadContent />
       <ThemeProvider
         attribute="class"
-        defaultTheme="dark"
+        defaultTheme="light"
         disableTransitionOnChange
         storageKey="vite-ui-theme"
       >
-        <div className="grid grid-rows-[auto_1fr] h-svh">
+        <div className="grid h-svh min-w-0 grid-rows-[auto_1fr] overflow-x-hidden">
           <Header />
           <Outlet />
         </div>
         <Toaster richColors />
       </ThemeProvider>
-      <TanStackRouterDevtools position="bottom-left" />
     </>
   );
 }
